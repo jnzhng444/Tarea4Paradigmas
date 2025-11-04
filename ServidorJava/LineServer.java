@@ -14,13 +14,13 @@ public class LineServer {
 
     private final GameEventBus bus = new GameEventBus();
     private final Game game = new Game(bus);
-    private final GameLoop loop = new GameLoop(game, "200"); // 200 ms
+    private final GameLoop loop = new GameLoop(game, "200");
+    private final SessionRegistry sessions = new SessionRegistry();
 
     public LineServer(int port, String serverId) {
         this.port = port;
         this.serverId = serverId;
 
-        // Suscribir broadcast: cualquier STATE/LEVEL/… se envía a todos los clientes
         bus.subscribe(e -> {
             if (e instanceof StateEvent s) {
                 broadcast(s.payload());
@@ -39,7 +39,7 @@ public class LineServer {
         var pool = Executors.newCachedThreadPool();
         try (var server = new ServerSocket(port)) {
             System.out.println("Servidor escuchando en puerto " + port);
-            var dispatcher = new CommandDispatcherWithGame(serverId, game); // <- ver B)
+            var dispatcher = new CommandDispatcherWithGame(serverId, game, sessions);
             while (true) {
                 var client = server.accept();
                 pool.execute(() -> handleClient(client, dispatcher));
@@ -55,13 +55,20 @@ public class LineServer {
              var out = new PrintWriter(new OutputStreamWriter(client.getOutputStream(), StandardCharsets.UTF_8), true)) {
 
             clients.add(out);
+            var ctx = new ClientContext(out);
+
             String line;
             while ((line = in.readLine()) != null) {
-                String response = dispatcher.dispatch(line.trim());
+                String response = dispatcher.dispatch(line.trim(), ctx);
                 out.println(response);
                 if ("BYE".equals(response)) break;
             }
+
+            // limpieza
             clients.remove(out);
+            sessions.remove(ctx);
+            if (ctx.playerId() != null) game.removePlayer(ctx.playerId());
+
         } catch (Exception e) {
             System.err.println("Error con cliente: " + e.getMessage());
         }

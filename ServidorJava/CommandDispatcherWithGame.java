@@ -9,63 +9,96 @@ public final class CommandDispatcherWithGame {
 
     private final String serverId;
     private final Game game;
-    private Map<String, Function<List<String>, String>> table;
+    private final SessionRegistry sessions;
+    private Map<String, Function<Call, String>> table;
 
-    public CommandDispatcherWithGame(String serverId, Game game) {
-        this.serverId = Objects.requireNonNull(serverId);
-        this.game = Objects.requireNonNull(game);
+    // Encapsula tokens + contexto de la conexión
+    private static final class Call {
+        final List<String> tokens;
+        final ClientContext ctx;
+        Call(List<String> t, ClientContext c){ this.tokens = t; this.ctx = c; }
+    }
+
+    // ⬅️ Firma correcta: incluye SessionRegistry
+    public CommandDispatcherWithGame(String serverId, Game game, SessionRegistry sessions) {
+        this.serverId  = Objects.requireNonNull(serverId);
+        this.game      = Objects.requireNonNull(game);
+        this.sessions  = Objects.requireNonNull(sessions);
         initMaps();
     }
 
     private void initMaps() {
-        Map<String, Function<List<String>, String>> t = new HashMap<>();
-        t.put("PING", this::onPing);
+        Map<String, Function<Call, String>> t = new HashMap<>();
+        t.put("PING",  this::onPing);
         t.put("HELLO", this::onHello);
-        t.put("MOVE", this::onMove);
-        t.put("BYE",  this::onBye);
+        t.put("MOVE",  this::onMove);
+        t.put("BYE",   this::onBye);
         t.put("ADMIN", this::onAdmin);
         this.table = Collections.unmodifiableMap(t);
     }
 
-    public String dispatch(String line) {
+    // ⬅️ Firma correcta: recibe (String, ClientContext)
+    public String dispatch(String line, ClientContext ctx) {
         if (line == null || line.isBlank()) return err(400, "Empty");
         final List<String> tokens = tokenize(line);
         final String head = tokens.get(0).toUpperCase(Locale.ROOT);
         var fn = table.get(head);
-        return (fn == null) ? onUnknown(tokens) : fn.apply(tokens);
+        return (fn == null) ? onUnknown(new Call(tokens, ctx)) : fn.apply(new Call(tokens, ctx));
     }
 
-    // Cliente
-    private String onPing(List<String> tk) {
-        return (tk.size()==1) ? "PONG" : err(400,"Usage: PING");
+    // --------- Cliente ----------
+    private String onPing(Call c) {
+        return (c.tokens.size()==1) ? "PONG" : err(400,"Usage: PING");
     }
-    private String onHello(List<String> tk) {
-        if (tk.size()<2) return err(400,"Usage: HELLO PLAYER|SPECTATOR");
-        String role = tk.get(1).toUpperCase(Locale.ROOT);
-        if (!role.equals("PLAYER") && !role.equals("SPECTATOR")) return err(422,"Role must be PLAYER or SPECTATOR");
-        return "OK " + UUID.randomUUID();
+
+    private String onHello(Call c) {
+        if (c.tokens.size()<2) return err(400,"Usage: HELLO PLAYER|SPECTATOR");
+        String role = c.tokens.get(1).toUpperCase(Locale.ROOT);
+
+        if (role.equals("PLAYER")) {
+            if (!sessions.canAddPlayer()) return err(409,"Players full");
+            var pid = new PlayerId();
+            c.ctx.playerId(pid);
+            c.ctx.role(Role.PLAYER);
+            sessions.addPlayer(c.ctx);
+            game.addPlayer(pid);
+            return "OK " + pid.value();
+        } else if (role.equals("SPECTATOR")) {
+            c.ctx.role(Role.SPECTATOR);
+            sessions.addSpectator(c.ctx);
+            return "OK SPECTATOR";
+        }
+        return err(422,"Role must be PLAYER or SPECTATOR");
     }
-    private String onMove(List<String> tk) {
-        if (tk.size()!=2) return err(400,"Usage: MOVE UP|DOWN|LEFT|RIGHT|JUMP");
-        String dir = tk.get(1).toUpperCase(Locale.ROOT);
-        if (!Set.of("UP","DOWN","LEFT","RIGHT","JUMP").contains(dir)) return err(422,"Direction must be UP|DOWN|LEFT|RIGHT|JUMP");
-        // (Próximo paso) encolar movimiento del jugador
+
+    private String onMove(Call c) {
+        if (c.tokens.size()!=2) return err(400,"Usage: MOVE UP|DOWN|LEFT|RIGHT|JUMP");
+        if (c.ctx.role() != Role.PLAYER) return err(403,"Only PLAYER can MOVE");
+        String dir = c.tokens.get(1).toUpperCase(Locale.ROOT);
+        if (!Set.of("UP","DOWN","LEFT","RIGHT","JUMP").contains(dir))
+            return err(422,"Direction must be UP|DOWN|LEFT|RIGHT|JUMP");
+        // Próximo paso: encolar y aplicar movimiento real en Game
         return "ACK MOVE " + dir;
     }
-    private String onBye(List<String> tk) { return (tk.size()==1) ? "BYE" : err(400,"Usage: BYE"); }
 
-    // Admin
-    private String onAdmin(List<String> tk) {
+    private String onBye(Call c) {
+        return (c.tokens.size()==1) ? "BYE" : err(400,"Usage: BYE");
+    }
+
+    // --------- Admin ----------
+    private String onAdmin(Call c) {
+        var tk = c.tokens;
         if (tk.size()<2) return err(400,"Usage: ADMIN <SPAWN|DELETE> ...");
         String sub = tk.get(1).toUpperCase(Locale.ROOT);
         return switch (sub) {
-            case "SPAWN"  -> onAdminSpawn(tk);
-            case "DELETE" -> onAdminDelete(tk);
+            case "SPAWN"  -> onAdminSpawn(c);
+            case "DELETE" -> onAdminDelete(c);
             default       -> err(400,"ADMIN subcommand must be SPAWN or DELETE");
         };
     }
 
-    private String onAdminSpawn(List<String> tk) {
+    private String onAdminSpawn(Call c) {
+        var tk = c.tokens;
         if (tk.size()<3) return err(400,"Usage: ADMIN SPAWN CROCODILE|FRUIT ...");
         String kind = tk.get(2).toUpperCase(Locale.ROOT);
 
@@ -92,7 +125,8 @@ public final class CommandDispatcherWithGame {
         }
     }
 
-    private String onAdminDelete(List<String> tk) {
+    private String onAdminDelete(Call c) {
+        var tk = c.tokens;
         if (tk.size()<3) return err(400,"Usage: ADMIN DELETE FRUIT <LIANA> <ALTURA>");
         String kind = tk.get(2).toUpperCase(Locale.ROOT);
         if (!kind.equals("FRUIT")) return err(422,"DELETE supports only FRUIT");
@@ -101,10 +135,14 @@ public final class CommandDispatcherWithGame {
         return "ACK ADMIN DELETE FRUIT";
     }
 
-    private String onUnknown(List<String> tk) { return "ERR 400 Unrecognized: " + String.join(" ", tk); }
+    private String onUnknown(Call c) {
+        return "ERR 400 Unrecognized: " + String.join(" ", c.tokens);
+    }
 
     private static List<String> tokenize(String line){
-        return Stream.of(line.trim().split("\\s+")).filter(s->!s.isBlank()).collect(Collectors.toList());
+        return Stream.of(line.trim().split("\\s+"))
+                     .filter(s -> !s.isBlank())
+                     .collect(Collectors.toList());
     }
-    private static String err(int c, String t){ return "ERR " + c + " " + t; }
+    private static String err(int code, String text){ return "ERR " + code + " " + text; }
 }
