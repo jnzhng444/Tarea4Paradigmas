@@ -1,0 +1,27 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+        "label": "build-winsock-client",
+        "type": "shell",
+        "command": "C:/mingw64/bin/gcc.EXE",
+        "args": [
+            "c:/Users/snipe/OneDrive/Desktop/Tarea4Paradigmas/ClienteC/client.c",
+            "-o",
+            "c:/Users/snipe/OneDrive/Desktop/Tarea4Paradigmas/ClienteC/output/client.exe",
+            "-Wall",
+            "-Wextra",
+            "-g3",
+            "-D_WIN32_WINNT=0x0600",
+            "-lws2_32"
+        ],
+        "group": {
+            "kind": "build",
+            "isDefault": true
+        },
+        "problemMatcher": [
+            "$gcc"
+        ]
+    }
+]
+}
