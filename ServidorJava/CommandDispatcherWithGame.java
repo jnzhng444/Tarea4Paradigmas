@@ -12,14 +12,14 @@ public final class CommandDispatcherWithGame {
     private final SessionRegistry sessions;
     private Map<String, Function<Call, String>> table;
 
-    // Encapsula tokens + contexto de la conexión
+    /** Encapsula tokens + contexto por conexión */
     private static final class Call {
         final List<String> tokens;
         final ClientContext ctx;
         Call(List<String> t, ClientContext c){ this.tokens = t; this.ctx = c; }
     }
 
-    // ⬅️ Firma correcta: incluye SessionRegistry
+    /** Constructor (incluye SessionRegistry) */
     public CommandDispatcherWithGame(String serverId, Game game, SessionRegistry sessions) {
         this.serverId  = Objects.requireNonNull(serverId);
         this.game      = Objects.requireNonNull(game);
@@ -37,7 +37,7 @@ public final class CommandDispatcherWithGame {
         this.table = Collections.unmodifiableMap(t);
     }
 
-    // ⬅️ Firma correcta: recibe (String, ClientContext)
+    /** Entrada principal: ahora recibe (línea + contexto) */
     public String dispatch(String line, ClientContext ctx) {
         if (line == null || line.isBlank()) return err(400, "Empty");
         final List<String> tokens = tokenize(line);
@@ -46,7 +46,8 @@ public final class CommandDispatcherWithGame {
         return (fn == null) ? onUnknown(new Call(tokens, ctx)) : fn.apply(new Call(tokens, ctx));
     }
 
-    // --------- Cliente ----------
+    // -------------------- Handlers Cliente --------------------
+
     private String onPing(Call c) {
         return (c.tokens.size()==1) ? "PONG" : err(400,"Usage: PING");
     }
@@ -71,21 +72,24 @@ public final class CommandDispatcherWithGame {
         return err(422,"Role must be PLAYER or SPECTATOR");
     }
 
+    /** MOVE que encola al Game; sólo para PLAYER */
     private String onMove(Call c) {
         if (c.tokens.size()!=2) return err(400,"Usage: MOVE UP|DOWN|LEFT|RIGHT|JUMP");
         if (c.ctx.role() != Role.PLAYER) return err(403,"Only PLAYER can MOVE");
-        String dir = c.tokens.get(1).toUpperCase(Locale.ROOT);
-        if (!Set.of("UP","DOWN","LEFT","RIGHT","JUMP").contains(dir))
-            return err(422,"Direction must be UP|DOWN|LEFT|RIGHT|JUMP");
-        // Próximo paso: encolar y aplicar movimiento real en Game
-        return "ACK MOVE " + dir;
+
+        Direction dir = Direction.fromString(c.tokens.get(1));
+        if (dir == null) return err(422,"Direction must be UP|DOWN|LEFT|RIGHT|JUMP");
+
+        game.enqueueMove(c.ctx.playerId(), dir);
+        return "ACK MOVE " + dir.name();
     }
 
     private String onBye(Call c) {
         return (c.tokens.size()==1) ? "BYE" : err(400,"Usage: BYE");
     }
 
-    // --------- Admin ----------
+    // -------------------- Handlers Admin ---------------------
+
     private String onAdmin(Call c) {
         var tk = c.tokens;
         if (tk.size()<2) return err(400,"Usage: ADMIN <SPAWN|DELETE> ...");
@@ -106,10 +110,12 @@ public final class CommandDispatcherWithGame {
             if (tk.size()<4) return err(400,"Usage: ADMIN SPAWN CROCODILE RED|BLUE ...");
             String color = tk.get(3).toUpperCase(Locale.ROOT);
             if (color.equals("RED")) {
+                // ADMIN SPAWN CROCODILE RED <LIANA> <ALTURA>
                 if (tk.size()!=6) return err(400,"Usage: ADMIN SPAWN CROCODILE RED <LIANA> <ALTURA>");
                 game.spawnCrocodileRed(new LianaId(tk.get(4)), new Height(tk.get(5)));
                 return "ACK ADMIN SPAWN CROCODILE RED";
             } else if (color.equals("BLUE")) {
+                // ADMIN SPAWN CROCODILE BLUE <LIANA>
                 if (tk.size()!=5) return err(400,"Usage: ADMIN SPAWN CROCODILE BLUE <LIANA>");
                 game.spawnCrocodileBlue(new LianaId(tk.get(4)));
                 return "ACK ADMIN SPAWN CROCODILE BLUE";
@@ -117,6 +123,7 @@ public final class CommandDispatcherWithGame {
                 return err(422,"CROCODILE color must be RED or BLUE");
             }
         } else if (kind.equals("FRUIT")) {
+            // ADMIN SPAWN FRUIT <LIANA> <ALTURA> <PUNTOS>
             if (tk.size()!=6) return err(400,"Usage: ADMIN SPAWN FRUIT <LIANA> <ALTURA> <PUNTOS>");
             game.spawnFruit(new LianaId(tk.get(3)), new Height(tk.get(4)), new Points(tk.get(5)));
             return "ACK ADMIN SPAWN FRUIT";
@@ -139,10 +146,15 @@ public final class CommandDispatcherWithGame {
         return "ERR 400 Unrecognized: " + String.join(" ", c.tokens);
     }
 
+    // -------------------- Util ------------------------------
+
     private static List<String> tokenize(String line){
         return Stream.of(line.trim().split("\\s+"))
                      .filter(s -> !s.isBlank())
                      .collect(Collectors.toList());
     }
-    private static String err(int code, String text){ return "ERR " + code + " " + text; }
+
+    private static String err(int code, String text){
+        return "ERR " + code + " " + text;
+    }
 }
