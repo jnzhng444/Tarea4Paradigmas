@@ -34,6 +34,9 @@ static CRITICAL_SECTION g_cs;
 static SOCKET g_sock = INVALID_SOCKET;
 static HWND g_hwnd = NULL;
 
+// Solo mostramos el ID local del jugador
+static char g_local_id[64] = "";     // id del jugador local ("OK <uuid>")
+
 // ---------------- Util & Parse helpers -----------------
 static int parse_int_loose(const char* s) {
     while (*s && !isdigit((unsigned char)*s) && *s!='-') s++;
@@ -55,32 +58,47 @@ static void clamp_lh(LH* p){
     if (p->h < 0) p->h = 0;
     if (p->h > DKJ_HEIGHT_MAX) p->h = DKJ_HEIGHT_MAX;
 }
+
+// Solo guardamos/dibujamos al jugador local (g_local_id)
 static void parse_players(World* w, const char* seg, size_t len){
     w->nPlayers = 0;
+
+    if (g_local_id[0] == '\0') return;
+
     char tmp[512]; if (len >= sizeof(tmp)) len = sizeof(tmp)-1;
     memcpy(tmp, seg, len); tmp[len]=0;
-    char* ctx = NULL; char* item = strtok_s(tmp, "|", &ctx);
-    while (item && w->nPlayers < (int)(sizeof(w->players)/sizeof(w->players[0]))){
-        PlayerDraw* pd = &w->players[w->nPlayers];
-        memset(pd, 0, sizeof(*pd));
+
+    char* ctx = NULL; 
+    char* item = strtok_s(tmp, "|", &ctx);
+    while (item){
         // id=...,l=N,h=M
+        char idbuf[64] = {0};
         const char* idk = strstr(item, "id=");
         const char* lk  = strstr(item, "l=");
         const char* hk  = strstr(item, "h=");
-        if (idk){ idk += 3; // copy until comma or end
-            int i=0; while (*idk && *idk!=',' && i< (int)sizeof(pd->id)-1) pd->id[i++]=*idk++;
-            pd->id[i]=0;
-        } else { strcpy(pd->id, "P"); }
-        pd->pos.l = lk ? parse_int_loose(lk+2) : 1;
-        if (hk){
-            if (strncmp(hk+2, "MAX", 3)==0) pd->pos.h = DKJ_HEIGHT_MAX;
-            else pd->pos.h = parse_int_loose(hk+2);
-        } else pd->pos.h = 0;
-        clamp_lh(&pd->pos);
-        w->nPlayers++;
+        if (idk){ 
+            idk += 3; 
+            int i=0; 
+            while (*idk && *idk!=',' && i<(int)sizeof(idbuf)-1) idbuf[i++]=*idk++;
+            idbuf[i]=0;
+        }
+        if (idbuf[0] && strcmp(idbuf, g_local_id)==0){
+            PlayerDraw* pd = &w->players[0];
+            memset(pd, 0, sizeof(*pd));
+            strncpy(pd->id, idbuf, sizeof(pd->id)-1);
+            pd->pos.l = lk ? parse_int_loose(lk+2) : 1;
+            if (hk){
+                if (strncmp(hk+2, "MAX", 3)==0) pd->pos.h = DKJ_HEIGHT_MAX;
+                else pd->pos.h = parse_int_loose(hk+2);
+            } else pd->pos.h = 0;
+            clamp_lh(&pd->pos);
+            w->nPlayers = 1;   // solo el local
+            break;
+        }
         item = strtok_s(NULL, "|", &ctx);
     }
 }
+
 static void parse_lh_list(LH* arr, int* count, int max, const char* seg, size_t len){
     *count = 0;
     char tmp[512]; if (len >= sizeof(tmp)) len = sizeof(tmp)-1;
@@ -166,7 +184,8 @@ static void lh_to_xy(const LH lh, int* x, int* y, RECT rc){
     int h = rc.bottom - rc.top;
     int usableW = w - 2*MARGIN_X;
     int usableH = h - 2*MARGIN_Y;
-    if (usableW<10) usableW=10; if (usableH<10) usableH=10;
+    if (usableW < 10) usableW = 10;
+    if (usableH < 10) usableH = 10;
 
     double dx = (DKJ_LIANAS>1) ? (double)usableW/(double)(DKJ_LIANAS-1) : (double)usableW;
     *x = MARGIN_X + (int)((lh.l-1)*dx);
@@ -224,38 +243,89 @@ static void paint_scene(HDC hdc, RECT rc){
         int x,y; lh_to_xy(W.reds[i], &x,&y, rc);
         fill_rect(hdc, x, y, RED_SIZE, RED_SIZE, RGB(255,64,64));
     }
-    // jugadores (Jr)
+    // jugador local (Jr) - a lo sumo 1 por filtro
     for (int i=0;i<W.nPlayers;i++){
         int x,y; lh_to_xy(W.players[i].pos, &x,&y, rc);
         fill_disc(hdc, x, y, JR_RADIUS, RGB(60,255,120));
     }
 
-    // HUD simple (texto)
+    // HUD simple (texto) — sólo mostramos el ID del jugador
     SetBkMode(hdc, TRANSPARENT);
     SetTextColor(hdc, RGB(220,220,220));
     TextOutA(hdc, 10, 10, "Flechas: MOVE, Espacio: JUMP, Q/Esc: Salir", 42);
+
+    if (g_local_id[0]) {
+        char hud[256];
+        snprintf(hud, sizeof(hud), "You: %s", g_local_id);
+        TextOutA(hdc, 10, 30, hud, (int)strlen(hud));
+    }
 }
+
 
 // ---------------- Hilo de red --------------------------
 static DWORD WINAPI NetThread(LPVOID lp) {
     (void)lp; // evitar warning
-    // HELLO PLAYER y luego loop de recepción
+
+    // Enviamos HELLO PLAYER apenas conecte
     send_line(g_sock, DKJ_MSG_HELLO_PLAYER);
 
     char line[DKJ_MAX_LINE];
+    bool hello_done = false;
+
     for (;;) {
         int n = recv_line(g_sock, line, sizeof(line));
         if (n <= 0) break;
+
+        // 1) Primeras respuestas: OK <uuid> o ERR ...
+        if (!hello_done) {
+            if (strncmp(line, "OK ", 3) == 0) {
+                // Guardar mi UUID
+                const char* p = line + 3;
+                size_t L = 0;
+                while (p[L] && p[L] != '\r' && p[L] != '\n' && L < sizeof(g_local_id)-1) L++;
+                memcpy(g_local_id, p, L);
+                g_local_id[L] = '\0';
+                hello_done = true;
+                InvalidateRect(g_hwnd, NULL, FALSE);
+                continue;
+            }
+
+            // Si el server no aceptó al jugador
+            if (strncmp(line, "ERR", 3) == 0) {
+                // Si el server manda algo tipo:
+                // "ERR 409 Players full"   ó
+                // "ERR 403 Players limit reached" etc.
+                MessageBoxA(
+                    g_hwnd,
+                    "No hay cupo para mas jugadores activos.\n\n"
+                    "Consejos:\n"
+                    "Cierra otro cliente jugador o\n"
+                    "Conectate como SPECTATOR si todavia hay espacio para ver.",
+                    "Cupo de jugadores lleno",
+                    MB_ICONWARNING | MB_OK
+                );
+                // cerrar ordenadamente
+                PostMessage(g_hwnd, WM_CLOSE, 0, 0);
+                return 0;
+            }
+
+            // Si recibimos algo inesperado antes del OK, lo ignoramos
+            // o podrías mostrarlo en un MessageBox si prefieres.
+        }
+
+        // 2) Resto de mensajes (ya aceptado como jugador)
         if (strncmp(line, "STATE ", 6) == 0) {
             apply_state_line(line);
         } else {
-            // otros (ACK, OK, PONG, ERR, LEVEL...)
+            // otros (ACK, PONG, ERR, LEVEL, SCORE, DEAD…)
             InvalidateRect(g_hwnd, NULL, FALSE);
         }
     }
+
     PostMessage(g_hwnd, WM_CLOSE, 0, 0);
     return 0;
 }
+
 
 // ---------------- Win32: ventana -----------------------
 static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
@@ -264,9 +334,11 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         g_hwnd = h;
         SetTimer(h, 1, 1000 / 60, NULL); // 60 FPS
         return 0;
+
     case WM_TIMER:
         InvalidateRect(h, NULL, FALSE);
         return 0;
+
     case WM_KEYDOWN:
         if (w == VK_ESCAPE || w == 'Q' || w == 'q') {
             send_line(g_sock, DKJ_MSG_BYE);
@@ -277,6 +349,7 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         else if (w == VK_DOWN)    send_line(g_sock, "MOVE DOWN\n");
         else if (w == VK_SPACE)   send_line(g_sock, "MOVE JUMP\n");
         return 0;
+
     case WM_PAINT: {
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(h, &ps);
@@ -284,6 +357,7 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         EndPaint(h, &ps);
         return 0;
     }
+
     case WM_DESTROY:
         KillTimer(h, 1);
         if (g_sock != INVALID_SOCKET) {

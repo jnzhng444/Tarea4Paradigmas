@@ -1,0 +1,103 @@
+package ServidorJava;
+
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+
+/**
+ * Consola de administración del servidor.
+ * Lee líneas de System.in y las despacha al CommandDispatcherWithGame,
+ * usando un ClientContext que escribe en System.out.
+ *
+ * Nuevos comandos:
+ *   LIST  -> muestra todos los jugadores activos y sus partidas
+ *   help  -> imprime ayuda
+ *   quit  -> sale de la consola (no tumba el server)
+ */
+public final class AdminConsole implements Runnable {
+    private final CommandDispatcherWithGame dispatcher;
+    private final SessionRegistry sessions;
+
+    public AdminConsole(CommandDispatcherWithGame dispatcher, SessionRegistry sessions) {
+        this.dispatcher = dispatcher;
+        this.sessions = sessions;
+    }
+
+    @Override
+    public void run() {
+        try (var in = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8))) {
+            System.out.println("[ADMIN] Consola lista. Escribe 'help', 'list' o 'quit'.");
+            while (true) {
+                System.out.print("> ");
+                String line = in.readLine();
+                if (line == null) break;
+                line = line.trim();
+                if (line.isEmpty()) continue;
+
+                if (line.equalsIgnoreCase("quit") || line.equalsIgnoreCase("exit")) {
+                    System.out.println("[ADMIN] Saliendo de la consola…");
+                    break;
+                }
+
+                if (line.equalsIgnoreCase("help")) {
+                    printHelp();
+                    continue;
+                }
+
+                if (line.equalsIgnoreCase("list")) {
+                    listPlayers();
+                    continue;
+                }
+
+                // Contexto de consola: escribe a System.out
+                var out = new PrintWriter(new OutputStreamWriter(System.out, StandardCharsets.UTF_8), true);
+                var ctx = new ClientContext(out);
+
+                try {
+                    String resp = dispatcher.dispatch(line, ctx);
+                    System.out.println(resp);
+                } catch (Exception e) {
+                    System.out.println("ERR 500 " + e.getMessage());
+                }
+            }
+        } catch (IOException e) {
+            System.err.println("[ADMIN] Error consola: " + e.getMessage());
+        }
+    }
+
+    private static void printHelp() {
+        System.out.println("""
+            Comandos disponibles:
+              PING
+              ADMIN <PLAYER_ID> SPAWN CROCODILE RED <LIANA> <ALTURA>
+              ADMIN <PLAYER_ID> SPAWN CROCODILE BLUE <LIANA>
+              ADMIN <PLAYER_ID> SPAWN FRUIT <LIANA> <ALTURA> <PUNTOS>
+              ADMIN <PLAYER_ID> DELETE FRUIT <LIANA> <ALTURA>
+              LIST         - muestra los jugadores activos
+              HELP         - muestra este mensaje
+              QUIT/EXIT    - cierra la consola de admin
+
+            Notas:
+              • Usa el <PLAYER_ID> que aparece en el cliente GUI (You: <uuid>).
+              • 'quit' cierra la consola pero deja el servidor corriendo.
+            """);
+    }
+
+    private void listPlayers() {
+        var list = sessions.list();
+        if (list.isEmpty()) {
+            System.out.println("No hay jugadores activos.");
+            return;
+        }
+        System.out.println("Jugadores activos:");
+        int i = 1;
+        for (ClientContext s : list) {
+            if (s.role() == Role.PLAYER && s.playerId() != null) {
+                System.out.printf("  %d) %s%n", i++, s.playerId().value());
+            }
+        }
+        if (i == 1) {
+            System.out.println("  (sin jugadores PLAYER con id)");
+        }
+    }
+
+}

@@ -1,24 +1,30 @@
 package ServidorJava;
 
-import java.util.*;
+import java.util.List;
+import java.util.Collections;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+/** Registro simple y thread-safe de sesiones conectadas. */
 public final class SessionRegistry {
-    private final List<ClientContext> players = new CopyOnWriteArrayList<>();
-    private final List<ClientContext> spectators = new CopyOnWriteArrayList<>();
-    private final int maxPlayers = 2;   // regla de negocio pedida (2 jugadores)
-    // Podés más adelante agregar 2 espectadores por jugador si tu PDF lo exige literalmente.
+    private final CopyOnWriteArrayList<ClientContext> all = new CopyOnWriteArrayList<>();
 
-    public synchronized boolean canAddPlayer(){ return players.size() < maxPlayers; }
-    public synchronized void addPlayer(ClientContext ctx){ players.add(ctx); }
-    public synchronized void remove(ClientContext ctx){
-        players.remove(ctx); spectators.remove(ctx);
+    /** Guarda la sesión si no existe (PLAYER). */
+    public void addPlayer(ClientContext ctx) {
+        if (ctx != null) all.addIfAbsent(ctx);
     }
-    public synchronized void addSpectator(ClientContext ctx){ spectators.add(ctx); }
 
-    public List<ClientContext> allConnections(){
-        var all = new ArrayList<ClientContext>(players);
-        all.addAll(spectators);
-        return all;
+    /** Guarda la sesión si no existe (SPECTATOR). */
+    public void addSpectator(ClientContext ctx) {
+        if (ctx != null) all.addIfAbsent(ctx);
+    }
+
+    /** Elimina la sesión del registro. */
+    public void remove(ClientContext ctx) {
+        if (ctx != null) all.remove(ctx);
+    }
+
+    /** Snapshot inmutable para iterar desde consola/admin. */
+    public List<ClientContext> list() {
+        return Collections.unmodifiableList(all);
     }
 }

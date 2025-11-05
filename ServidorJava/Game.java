@@ -6,11 +6,21 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * Núcleo del juego con cola de movimientos.
- * Los jugadores pueden moverse entre lianas y alturas.
+ * Integra DefaultEntityFactory (Factory Method visible) para crear entidades.
+ * Evita "magic numbers" con GameRules.
  */
 public final class Game {
 
+    // ===== Reglas / límites =====
+    public static final class GameRules {
+        public static final int MAX_LIANAS = 6;   // ajusta si en tu cliente C usas otro valor
+        public static final int HEIGHT_MAX = 12;  // idem
+        private GameRules() {}
+    }
+
+    // ===== Estado =====
     private final GameEventBus bus;
+    private final DefaultEntityFactory factory;   // FÁBRICA 
 
     private final List<CrocodileRed>  reds   = new CopyOnWriteArrayList<>();
     private final List<CrocodileBlue> blues  = new CopyOnWriteArrayList<>();
@@ -18,47 +28,52 @@ public final class Game {
     private final Map<PlayerId, Player> players = new HashMap<>();
 
     private final Queue<MoveCommand> moves = new ConcurrentLinkedQueue<>();
-    private Speed speed = new Speed("1");
+    private Speed speed = new Speed("1");        // mantiene tu Speed textual
 
-    public Game(GameEventBus bus){
+    public Game(final GameEventBus bus, final DefaultEntityFactory factory){
         this.bus = Objects.requireNonNull(bus);
+        this.factory = Objects.requireNonNull(factory);
     }
 
-    // --- API ADMIN ---------------------------------------------------------
-    public void spawnCrocodileRed(LianaId l, Height h){
-        reds.add(new CrocodileRed(l, h, speed));
+    // ===== API ADMIN (usa la fábrica) =====
+    public void spawnCrocodileRed(final LianaId l, final Height h){
+        reds.add(factory.newRed(l, h, speed));
         emitState();
     }
-    public void spawnCrocodileBlue(LianaId l){
-        blues.add(new CrocodileBlue(l, new Height("MAX"), speed));
+
+    public void spawnCrocodileBlue(final LianaId l){
+        blues.add(factory.newBlue(l, speed));
         emitState();
     }
-    public void spawnFruit(LianaId l, Height h, Points p){
-        fruits.add(new Fruit(l, h, p));
+
+    public void spawnFruit(final LianaId l, final Height h, final Points p){
+        fruits.add(factory.newFruit(l, h, p));
         emitState();
     }
-    public void deleteFruit(LianaId l, Height h){
+
+    public void deleteFruit(final LianaId l, final Height h){
         fruits.removeIf(f -> f.position().liana().equals(l) && f.position().height().equals(h));
         emitState();
     }
 
-    // --- PLAYERS -----------------------------------------------------------
-    public void addPlayer(PlayerId id){
+    // ===== PLAYERS =====
+    public void addPlayer(final PlayerId id){
         players.put(id, new Player(id, new Position(new LianaId("1"), new Height("0"))));
         emitState();
     }
-    public void removePlayer(PlayerId id){
+
+    public void removePlayer(final PlayerId id){
         players.remove(id);
         emitState();
     }
 
-    // --- MOVIMIENTOS -------------------------------------------------------
-    public void enqueueMove(PlayerId id, Direction dir){
+    // ===== MOVIMIENTOS =====
+    public void enqueueMove(final PlayerId id, final Direction dir){
         if (id == null || dir == null) return;
         moves.offer(new MoveCommand(id, dir));
     }
 
-    // --- LOOP --------------------------------------------------------------
+    // ===== LOOP =====
     public void step(){
         processMoves();
         for (var r : reds)  r.step();
@@ -71,16 +86,17 @@ public final class Game {
         while ((m = moves.poll()) != null) {
             var p = players.get(m.player());
             if (p == null) continue;
+
             var pos = p.position();
             int l = Integer.parseInt(pos.liana().value());
             int h = Integer.parseInt(pos.height().value());
 
             switch (m.dir()) {
                 case LEFT  -> l = Math.max(1, l - 1);
-                case RIGHT -> l = Math.min(6, l + 1);
-                case UP    -> h = Math.min(12, h + 1);
+                case RIGHT -> l = Math.min(GameRules.MAX_LIANAS, l + 1);
+                case UP    -> h = Math.min(GameRules.HEIGHT_MAX, h + 1);
                 case DOWN  -> h = Math.max(0, h - 1);
-                case JUMP  -> h = Math.min(12, h + 2);
+                case JUMP  -> h = Math.min(GameRules.HEIGHT_MAX, h + 2);
             }
 
             p.setPosition(new Position(
@@ -90,7 +106,7 @@ public final class Game {
         }
     }
 
-    // --- SERIALIZACIÓN -----------------------------------------------------
+    // ===== SERIALIZACIÓN =====
     private void emitState(){ bus.emit(new StateEvent(snapshot())); }
 
     public String snapshot(){

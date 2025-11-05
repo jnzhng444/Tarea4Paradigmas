@@ -3,43 +3,46 @@ package ServidorJava;
 import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
+
+import javax.swing.SwingUtilities;
 
 public class LineServer {
     private final int port;
     private final String serverId;
 
-    private final CopyOnWriteArrayList<PrintWriter> clients = new CopyOnWriteArrayList<>();
+    // ★ Fábrica explícita para el dominio
+    private final DefaultEntityFactory factory = new DefaultEntityFactory();
 
-    private final GameEventBus bus = new GameEventBus();
-    private final Game game = new Game(bus);
-    private final GameLoop loop = new GameLoop(game, "200");
+    // ★ MatchRegistry ahora recibe la fábrica (para crear Game/entidades)
+    private final MatchRegistry matches = new MatchRegistry(factory);
     private final SessionRegistry sessions = new SessionRegistry();
 
     public LineServer(int port, String serverId) {
         this.port = port;
         this.serverId = serverId;
-
-        bus.subscribe(e -> {
-            if (e instanceof StateEvent s) {
-                broadcast(s.payload());
-            } else if (e instanceof LevelEvent l) {
-                broadcast("LEVEL " + l.level() + " SPEED " + l.speed().value());
-            } else if (e instanceof ScoreEvent sc) {
-                broadcast("SCORE " + sc.player().value() + " " + sc.points().value());
-            } else if (e instanceof DeathEvent d) {
-                broadcast("DEAD " + d.player().value());
-            }
-        });
     }
 
     public void start() {
-        loop.start();
+
         var pool = Executors.newCachedThreadPool();
         try (var server = new ServerSocket(port)) {
             System.out.println("Servidor escuchando en puerto " + port);
-            var dispatcher = new CommandDispatcherWithGame(serverId, game, sessions);
+
+            // Dispatcher NO cambia: sólo le pasamos el MatchRegistry ya cableado con la fábrica
+            var dispatcher = new CommandDispatcherWithGame(serverId, matches, sessions);
+
+            // GUI Admin (ventana)
+            SwingUtilities.invokeLater(() -> {
+                var win = new AdminWindow(dispatcher, sessions);
+                win.showWindow();
+            });
+
+            // Consola admin (si la quieres conservar)
+            var admin = new Thread(new AdminConsole(dispatcher, sessions), "AdminConsole");
+            admin.setDaemon(true);
+            admin.start();
+
             while (true) {
                 var client = server.accept();
                 pool.execute(() -> handleClient(client, dispatcher));
@@ -54,7 +57,6 @@ public class LineServer {
              var in  = new BufferedReader(new InputStreamReader(client.getInputStream(), StandardCharsets.UTF_8));
              var out = new PrintWriter(new OutputStreamWriter(client.getOutputStream(), StandardCharsets.UTF_8), true)) {
 
-            clients.add(out);
             var ctx = new ClientContext(out);
 
             String line;
@@ -65,18 +67,11 @@ public class LineServer {
             }
 
             // limpieza
-            clients.remove(out);
+            matches.removeClient(ctx); // si tu Dispatcher asocia el ctx a una partida, esto lo saca
             sessions.remove(ctx);
-            if (ctx.playerId() != null) game.removePlayer(ctx.playerId());
 
         } catch (Exception e) {
             System.err.println("Error con cliente: " + e.getMessage());
-        }
-    }
-
-    private void broadcast(String line){
-        for (var w : clients) {
-            try { w.println(line); } catch (Exception ignored) {}
         }
     }
 }
