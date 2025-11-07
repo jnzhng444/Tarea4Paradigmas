@@ -2,21 +2,44 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "build-gui-client",
+      "label": "compile-network",
       "type": "shell",
-      "command": "C:/mingw64/bin/gcc.exe",
+      "command": "gcc",
       "args": [
-        "c:/Users/snipe/OneDrive/Desktop/Tarea4Paradigmas/ClienteC/gui_client.c",
+        "-c",
+        "${workspaceFolder}/ClienteC/network.c",
         "-o",
-        "c:/Users/snipe/OneDrive/Desktop/Tarea4Paradigmas/ClienteC/output/gui_client.exe",
-        "-I", "c:/Users/snipe/OneDrive/Desktop/Tarea4Paradigmas/ClienteC",
-        "-Wall", "-Wextra", "-O2",
-        "-D_WIN32_WINNT=0x0601",
-        "-mwindows",
-        "-lws2_32", "-lgdi32"
+        "${workspaceFolder}/ClienteC/output/network.o",
+        "-Wall", "-Wextra", "-O2"
       ],
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "build-raylib-client",
+      "type": "shell",
+      "command": "gcc",
+      "args": [
+        "${workspaceFolder}/ClienteC/raylib_client.c",
+        "${workspaceFolder}/ClienteC/level.c",
+        "${workspaceFolder}/ClienteC/output/network.o",
+        "-o",
+        "${workspaceFolder}/ClienteC/output/dkj_client.exe",
+        "-I", "${workspaceFolder}/ClienteC",
+        "-I", "C:/raylib/raylib-5.5_win64_mingw-w64/include",
+        "-L", "C:/raylib/raylib-5.5_win64_mingw-w64/lib",
+        "-lraylibdll",
+        "-lws2_32",
+        "-lopengl32",
+        "-lgdi32",
+        "-lwinmm",
+        "-Wall", "-Wextra", "-O2"
+      ],
+      "dependsOn": ["compile-network"],
       "problemMatcher": ["$gcc"],
-      "group": { "kind": "build", "isDefault": true }
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
     }
   ]
 }

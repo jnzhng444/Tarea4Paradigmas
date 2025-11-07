@@ -16,7 +16,7 @@ public final class GameRoom {
     public GameRoom(DefaultEntityFactory factory) {
         // ★ el Game se construye con la fábrica explícita (Factory Method visible)
         this.game = new Game(bus, factory);
-        this.loop = new GameLoop(game, "200"); // tick textual para respetar “no tipos simples”
+        this.loop = new GameLoop(game, "16"); // tick textual para respetar “no tipos simples”
         this.loop.start();
 
         // Suscripción a eventos del dominio para difundir a los adjuntos de esta sala
