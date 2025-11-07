@@ -25,8 +25,12 @@
 #define FRUIT_SIZE      8
 #define DK_SIZE         40
 
-// NOTA: Las constantes de física (GRAVITY, MOVE_SPEED, etc.) 
-// están definidas localmente en update_player_physics() 
-// para evitar conflictos con headers de Windows
+// ============ CAPACIDADES (coinciden con types.h) ============
+#define MAX_REDS   32
+#define MAX_BLUES  32
+#define MAX_FRUITS 32
+
+// NOTA: Las constantes de física (GRAVITY, MOVE_SPEED, etc.)
+// se manejan en el servidor o localmente donde corresponda.
 
 #endif
