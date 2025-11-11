@@ -1,4 +1,4 @@
-package ServidorJava;
+
 
 public final class GameRules {
     public static final int MAX_LIANAS = 6;

@@ -1,4 +1,4 @@
-package ServidorJava;
+
 
 public sealed interface GameEvent permits StateEvent, ScoreEvent, DeathEvent, LevelEvent {}
 

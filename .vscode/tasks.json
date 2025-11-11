@@ -1,45 +1,81 @@
 {
-  "version": "2.0.0",
-  "tasks": [
-    {
-      "label": "compile-network",
-      "type": "shell",
-      "command": "gcc",
-      "args": [
-        "-c",
-        "${workspaceFolder}/ClienteC/network.c",
-        "-o",
-        "${workspaceFolder}/ClienteC/output/network.o",
-        "-Wall", "-Wextra", "-O2"
-      ],
-      "problemMatcher": ["$gcc"]
-    },
-    {
-      "label": "build-raylib-client",
-      "type": "shell",
-      "command": "gcc",
-      "args": [
-        "${workspaceFolder}/ClienteC/raylib_client.c",
-        "${workspaceFolder}/ClienteC/level.c",
-        "${workspaceFolder}/ClienteC/output/network.o",
-        "-o",
-        "${workspaceFolder}/ClienteC/output/dkj_client.exe",
-        "-I", "${workspaceFolder}/ClienteC",
-        "-I", "C:/raylib/raylib-5.5_win64_mingw-w64/include",
-        "-L", "C:/raylib/raylib-5.5_win64_mingw-w64/lib",
-        "-lraylibdll",
-        "-lws2_32",
-        "-lopengl32",
-        "-lgdi32",
-        "-lwinmm",
-        "-Wall", "-Wextra", "-O2"
-      ],
-      "dependsOn": ["compile-network"],
-      "problemMatcher": ["$gcc"],
-      "group": {
-        "kind": "build",
-        "isDefault": true
-      }
-    }
-  ]
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build network",
+            "type": "shell",
+            "command": "mingw32-make.exe",
+            "args": [
+                "RAYLIB_PATH=C:/raylib/raylib",
+                "PROJECT_NAME=network",
+                "OBJS=ClienteC/network.c",
+                "BUILD_MODE=DEBUG",
+                "-C",
+                "${workspaceFolder}"
+            ],
+            "problemMatcher": ["$gcc"],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "build debug",
+            "type": "shell",
+            "command": "mingw32-make.exe",
+            "args": [
+                "RAYLIB_PATH=C:/raylib/raylib",
+                "PROJECT_NAME=dkj_client",
+                "OBJS=ClienteC/raylib_client.c ClienteC/level.c ClienteC/network.c",
+                "BUILD_MODE=DEBUG"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$gcc"],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "build release",
+            "type": "shell",
+            "command": "mingw32-make.exe",
+            "args": [
+                "RAYLIB_PATH=C:/raylib/raylib",
+                "PROJECT_NAME=dkj_client",
+                "OBJS=ClienteC/raylib_client.c ClienteC/level.c ClienteC/network.c"
+            ],
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "clean",
+            "type": "shell",
+            "command": "mingw32-make.exe",
+            "args": [
+                "clean",
+                "PROJECT_NAME=dkj_client"
+            ],
+            "problemMatcher": [],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            }
+        }
+    ]
 }

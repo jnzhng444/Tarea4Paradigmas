@@ -1,4 +1,3 @@
-package ServidorJava;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;

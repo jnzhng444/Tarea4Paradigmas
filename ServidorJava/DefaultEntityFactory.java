@@ -1,4 +1,4 @@
-package ServidorJava;
+
 
 /** Fábrica concreta de entidades del dominio */
 public final class DefaultEntityFactory {

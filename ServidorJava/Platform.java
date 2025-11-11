@@ -1,4 +1,4 @@
-package ServidorJava;
+
 
 final class Platform {
     final float x, y, w, h;

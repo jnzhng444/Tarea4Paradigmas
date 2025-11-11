@@ -1,4 +1,3 @@
-package ServidorJava;
 
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;

@@ -1,4 +1,4 @@
-package ServidorJava;
+
 
 final class PlayerPhysics {
     float x, y;        // posición en píxeles (x,y es el CENTRO del jugador)

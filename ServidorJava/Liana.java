@@ -1,4 +1,3 @@
-package ServidorJava;
 
 final class Liana {
     final float x, topY, bottomY;
