@@ -21,19 +21,20 @@ final class Level {
     Level() {
         // Plataformas
         platforms.add(new Platform(50, 520, 200, 20));      // piso
-        platforms.add(new Platform(300, 500, 100, 20));    
-        platforms.add(new Platform(500, 510, 50, 20));     
+        platforms.add(new Platform(330, 500, 100, 20));    
+        platforms.add(new Platform(475, 510, 90, 20));     
         platforms.add(new Platform(600, 510, 100, 20));
         
-        platforms.add(new Platform(80, 420, 200, 15));      // nivel 1
-        platforms.add(new Platform(520, 420, 200, 15));
-        platforms.add(new Platform(50, 320, 180, 15));      // nivel 2
-        platforms.add(new Platform(310, 320, 180, 15));
-        platforms.add(new Platform(570, 320, 180, 15));
-        platforms.add(new Platform(130, 220, 200, 15));     // nivel 3
-        platforms.add(new Platform(470, 220, 200, 15));
-        platforms.add(new Platform(200, 120, 400, 15));     // nivel 4
-        platforms.add(new Platform(300, 40, 200, 20));      // meta (DK)
+         // nivel 2
+        platforms.add(new Platform(240, 340, 180, 15));
+        platforms.add(new Platform(570, 300, 180, 15));
+
+        platforms.add(new Platform(240, 250, 200, 15));     // nivel 3
+
+        platforms.add(new Platform(500, 145, 170, 15));     // nivel 4
+
+        platforms.add(new Platform(40, 130, 500, 15));     // nivel 5
+
 
         // Lianas con IDs "1".."N"
         for (int i = 0; i < 6; i++) {

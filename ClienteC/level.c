@@ -1,3 +1,4 @@
+// level.c
 #include "types.h"
 #include "constants.h"
 #include "raylib.h"
@@ -19,23 +20,22 @@ void level_init(Level* lvl) {
     // ===== PLATAFORMAS =====
     // Piso
     lvl->platforms[lvl->platformCount++] = (Platform){{50, 520, 200, 20}};
-    lvl->platforms[lvl->platformCount++] = (Platform){{300, 500, 100, 20}};
-    lvl->platforms[lvl->platformCount++] = (Platform){{500, 510, 50, 20}};
+    lvl->platforms[lvl->platformCount++] = (Platform){{330, 500, 100, 20}};
+    lvl->platforms[lvl->platformCount++] = (Platform){{475, 510, 90, 20}};
     lvl->platforms[lvl->platformCount++] = (Platform){{600, 510, 100, 20}};
-    // Nivel 1
-    lvl->platforms[lvl->platformCount++] = (Platform){{80, 420, 200, 15}};
-    lvl->platforms[lvl->platformCount++] = (Platform){{520, 420, 200, 15}};
     // Nivel 2
-    lvl->platforms[lvl->platformCount++] = (Platform){{50, 320, 180, 15}};
-    lvl->platforms[lvl->platformCount++] = (Platform){{310, 320, 180, 15}};
-    lvl->platforms[lvl->platformCount++] = (Platform){{570, 320, 180, 15}};
+    lvl->platforms[lvl->platformCount++] = (Platform){{240, 340, 180, 15}};
+    lvl->platforms[lvl->platformCount++] = (Platform){{570, 300, 180, 15}};
     // Nivel 3
-    lvl->platforms[lvl->platformCount++] = (Platform){{130, 220, 200, 15}};
-    lvl->platforms[lvl->platformCount++] = (Platform){{470, 220, 200, 15}};
-    // Nivel 4 (meta)
-    lvl->platforms[lvl->platformCount++] = (Platform){{200, 120, 400, 15}};
-    // Plataforma DK
-    lvl->platforms[lvl->platformCount++] = (Platform){{300, 40, 200, 20}};
+    lvl->platforms[lvl->platformCount++] = (Platform){{240, 250, 200, 15}};
+
+    // Nivel 4
+    lvl->platforms[lvl->platformCount++] = (Platform){{500, 145, 170, 15}};
+    // Nivel 5  <-- aquí va la plataforma donde pondremos a DK (meta)
+    lvl->platforms[lvl->platformCount++] = (Platform){{40, 130, 500, 15}};
+
+    // ---- Nota: se ha eliminado la plataforma que estaba arriba ({300, 40, 200, 20})
+    //           tal y como solicitaste. Si quieres volver a añadirla, puedes hacerlo aquí.
 
     // ===== LIANAS =====
     float spacing = 120.0f;
@@ -48,7 +48,17 @@ void level_init(Level* lvl) {
     lvl->lianaCount = DKJ_LIANAS;
 
     // ===== META DK =====
-    lvl->dkPosition = (Vector2){400.0f, 20.0f};
+    // Colocamos a DK sobre la plataforma 5 (la última añadida arriba),
+    // en el extremo izquierdo (+10 píx de margen) y un poco por encima de la plataforma.
+    if (lvl->platformCount > 0) {
+        Rectangle plat = lvl->platforms[lvl->platformCount - 1].rect;
+        float dkX = plat.x + 40.0f;   // margen desde el borde izquierdo
+        float dkY = plat.y - 20.0f;   // un poco por encima para que se vea sobre la plataforma
+        lvl->dkPosition = (Vector2){ dkX, dkY };
+    } else {
+        // fallback por si acaso
+        lvl->dkPosition = (Vector2){40.0f, 110.0f};
+    }
 }
 
 // Dibuja el nivel con Raylib (modo normal)
