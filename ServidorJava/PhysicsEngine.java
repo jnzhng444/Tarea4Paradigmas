@@ -86,8 +86,42 @@ final class PhysicsEngine {
                 }
                 phys.vy = 0;
                 
-                // ⭐ DETECCIÓN DE FRUTAS EN LIANA (antes del continue)
                 Rect pr = playerRect(phys.x, phys.y);
+
+                for (CrocodileRed rc : level.crocodileReds()) {
+                    try {
+                        float cx = level.xOf(rc.position().liana());
+                        int logicalH = Integer.parseInt(rc.position().height().value());
+                        float cy = heightToPixels(logicalH);
+                        
+                        if (rectOverlap(pr, crocRect(cx, cy, true))) {
+                            System.out.println("[COLLISION ON LIANA] RED CROC HIT!");
+                            respawn(phys);
+                            phys.markRespawned();
+                            break;
+                        }
+                    } catch (Exception e) {
+                        System.err.println("[ERROR RED ON LIANA] " + e.getMessage());
+                    }
+                }
+
+                for (CrocodileBlue bc : level.crocodileBlues()) {
+                    try {
+                        float cx = level.xOf(bc.position().liana());
+                        int logicalH = Integer.parseInt(bc.position().height().value());
+                        float cy = heightToPixels(logicalH);
+                        
+                        if (rectOverlap(pr, crocRect(cx, cy, false))) {
+                            System.out.println("[COLLISION ON LIANA] BLUE CROC HIT!");
+                            respawn(phys);
+                            phys.markRespawned();
+                            break;
+                        }
+                    } catch (Exception e) {
+                        System.err.println("[ERROR BLUE ON LIANA] " + e.getMessage());
+                    }
+                }
+                
                 for (Fruit f : level.fruits()) {
                     try {
                         if (f.isCollected()) continue;
