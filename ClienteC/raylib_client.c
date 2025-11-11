@@ -36,7 +36,7 @@ static bool g_hello_done = false;
 
 // ===== DEBUG / AJUSTES VISUALES =====
 static bool  g_debug_draw  = false;   // F1
-static float g_hb_scale_x  = 0.55f;   // F7/F8
+static float g_hb_scale_x  = 0.99f;   // F7/F8
 static float g_hb_scale_y  = 0.85f;   // F3/F4
 static float g_feet_offset = 0.0f;    // F5/F6
 

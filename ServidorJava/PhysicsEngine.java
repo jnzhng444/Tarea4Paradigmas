@@ -148,22 +148,29 @@ final class PhysicsEngine {
                 continue;
             }
 
-            // GRAVEDAD + INTEGRACIÓN
-            if (!phys.onGround) phys.vy += GameRules.GRAVITY * dt;
+            // GRAVEDAD + INTEGRACION + TERMINAL VELOCITY
+            if (!phys.onGround) {
+                phys.vy += GameRules.GRAVITY * dt;
+                
+                // Limitar velocidad de caida (terminal velocity)
+                if (phys.vy > GameRules.MAX_FALL_SPEED) {
+                    phys.vy = GameRules.MAX_FALL_SPEED;
+                }
+            }
 
-            // Guardamos posición previa para swept (ahora PREV X y PREV Y)
+            // Guardamos posicion previa para swept (ahora PREV X y PREV Y)
             float prevX = phys.x;
             float prevY = phys.y;
 
-            // Aplicamos integración
+            // Aplicamos integracion
             phys.x += phys.vx * dt;
             phys.y += phys.vy * dt;
 
-            // Fricción
+            // Friccion
             phys.vx *= 0.85f;
             if (Math.abs(phys.vx) < 5.0f) phys.vx = 0;
 
-            // Suelo: asumimos por defecto que no está en ground (se recalculará)
+            // Suelo: asumimos por defecto que no esta en ground (se recalculara)
             phys.onGround = false;
 
             // Coordenadas del AABB del jugador (actual y previas)
@@ -182,14 +189,14 @@ final class PhysicsEngine {
             final float SIDE_TOLERANCE = 1.0f;   // evitar quedarse "pegado" por float rounding
 
             for (Platform p : platforms) {
-                // Primero: comprobaciones de solapamiento en proyección X/Y para decidir qué eje colisionó
+                // Primero: comprobaciones de solapamiento en proyeccion X/Y para decidir que eje colisiono
                 boolean overlapX_now = playerRight > p.x && playerLeft < p.x + p.w;
                 boolean overlapY_now = playerBottom > p.y && playerTop < p.y + p.h;
 
-                // Si no hay superposición en absoluto, siguiente plataforma
+                // Si no hay superposicion en absoluto, siguiente plataforma
                 if (!overlapX_now && !overlapY_now) continue;
 
-                // ===== 1) Colisiones verticales (techo / suelo) =====
+                // Colisiones verticales (techo / suelo)
                 // Aterrizaje desde arriba (prevBottom <= p.y && currBottom >= p.y)
                 if (prevBottom <= p.y && playerBottom >= p.y && overlapX_now) {
                     float distToSurface = playerBottom - p.y;
@@ -198,63 +205,43 @@ final class PhysicsEngine {
                         phys.onGround = true;
                         phys.y = p.y - (PLAYER_HEIGHT * 0.5f);
                         phys.vy = 0;
-                        // tras aterrizar no procesamos más colisiones verticales en esta plataforma
-                        // pero pueden quedar colisiones laterales con otras plataformas -> no break;
                     }
                 }
                 // Golpe con el techo (prevTop >= p.y + p.h && currTop <= p.y + p.h)
                 else if (prevTop >= p.y + p.h && playerTop <= p.y + p.h && overlapX_now) {
-                    // poner al jugador justo debajo de la plataforma (colisión con la cara inferior)
+                    // poner al jugador justo debajo de la plataforma (colision con la cara inferior)
                     phys.y = (p.y + p.h) + (PLAYER_HEIGHT * 0.5f);
                     phys.vy = 0;
-                    // Después de golpear la cabeza, no permitimos más penetración vertical
                 }
 
-                // ===== 2) Colisiones horizontales (laterales) =====
-                // Comprobamos movimientos horizontales que atraviesan el borde izquierdo/derecho de la plataforma
-                // Colisión desde la izquierda (prevRight <= p.x && currRight >= p.x)
+                // Colisiones horizontales (laterales)
+                // Colision desde la izquierda (prevRight <= p.x && currRight >= p.x)
                 if (prevRight <= p.x && playerRight >= p.x) {
-                    // Para que sea colisión lateral consideramos que hay solapamiento en Y (proyección vertical)
                     if (playerBottom > p.y + SIDE_TOLERANCE && playerTop < p.y + p.h - SIDE_TOLERANCE) {
-                        // colocar al jugador justo a la izquierda de la plataforma y anular velocidad X
-                        phys.x = p.x - PLAYER_WIDTH * 0.5f - 0.01f; // pequeño margen para evitar reentradas
+                        phys.x = p.x - PLAYER_WIDTH * 0.5f - 0.01f;
                         phys.vx = 0;
-                        // actualizar cajas para evitar dobles-resoluciones
                         playerLeft  = phys.x - PLAYER_WIDTH  * 0.5f;
                         playerRight = phys.x + PLAYER_WIDTH  * 0.5f;
                     }
                 }
-                // Colisión desde la derecha (prevLeft >= p.x + p.w && currLeft <= p.x + p.w)
+                // Colision desde la derecha (prevLeft >= p.x + p.w && currLeft <= p.x + p.w)
                 else if (prevLeft >= p.x + p.w && playerLeft <= p.x + p.w) {
                     if (playerBottom > p.y + SIDE_TOLERANCE && playerTop < p.y + p.h - SIDE_TOLERANCE) {
-                        // colocar al jugador justo a la derecha de la plataforma y anular velocidad X
                         phys.x = p.x + p.w + PLAYER_WIDTH * 0.5f + 0.01f;
                         phys.vx = 0;
                         playerLeft  = phys.x - PLAYER_WIDTH  * 0.5f;
                         playerRight = phys.x + PLAYER_WIDTH  * 0.5f;
                     }
                 }
-
-                // Nota: no hacemos "break" inmediato porque podría haber múltiples plataformas y
-                // queremos resolver todas las penetraciones en X/Y para dejar al jugador en una
-                // posición válida al final del bucle.
             }
 
-            // Límites & caída
+            // Limites & caida
             if (phys.x < GameRules.MIN_X) phys.x = GameRules.MIN_X;
             if (phys.x > GameRules.MAX_X) phys.x = GameRules.MAX_X;
             if (phys.y > GameRules.MAX_Y) respawn(phys);
 
-            // ===== COLISIONES CON ENTIDADES (todas centradas) =====
+            // COLISIONES CON ENTIDADES (todas centradas)
             Rect pr = playerRect(phys.x, phys.y);
-
-            // 🔍 DEBUG cada segundo
-            if (System.currentTimeMillis() % 1000 < 50) {
-                System.out.println("[DEBUG] Player: x=" + phys.x + ", y=" + phys.y + " vx=" + phys.vx + " vy=" + phys.vy);
-                System.out.println("[DEBUG] Reds count: " + level.crocodileReds().size());
-                System.out.println("[DEBUG] Blues count: " + level.crocodileBlues().size());
-                System.out.println("[DEBUG] Fruits count: " + level.fruits().size());
-            }
 
             // Rojos
             for (CrocodileRed rc : level.crocodileReds()) {
@@ -303,23 +290,8 @@ final class PhysicsEngine {
                     int logicalH = Integer.parseInt(f.position().height().value());
                     float fy = heightToPixels(logicalH);
 
-                    // Debug cuando estás cerca
-                    float distX = Math.abs(phys.x - fx);
-                    float distY = Math.abs(phys.y - fy);
-
-                    if (distX < 100 && distY < 100) {
-                        System.out.println("[FRUIT NEAR] Player(" + phys.x + "," + phys.y + ") Fruit(" + fx + "," + fy + ") logical=" + logicalH);
-                        System.out.println("[FRUIT NEAR] Distance: x=" + distX + " y=" + distY);
-                    }
-
                     Rect fr = fruitRect(fx, fy);
                     boolean overlap = rectOverlap(pr, fr);
-
-                    if (distX < 50 && distY < 50) {
-                        System.out.println("[FRUIT DETAIL] Player rect: x=" + pr.x + " y=" + pr.y + " w=" + pr.w + " h=" + pr.h);
-                        System.out.println("[FRUIT DETAIL] Fruit rect: x=" + fr.x + " y=" + fr.y + " w=" + fr.w + " h=" + fr.h);
-                        System.out.println("[FRUIT DETAIL] Overlap: " + overlap);
-                    }
 
                     if (overlap) {
                         System.out.println("[COLLISION] FRUIT COLLECTED! Points: " + f.points().value());
@@ -351,7 +323,17 @@ final class PhysicsEngine {
     }
 
     private void respawn(PlayerPhysics phys) {
-        System.out.println("[RESPAWN] Player died!");
+        System.out.println("════════════════════════════════════════");
+        System.out.println("[RESPAWN DEBUG] Player died!");
+        System.out.println("  Position: x=" + phys.x + ", y=" + phys.y);
+        System.out.println("  Velocity: vx=" + phys.vx + ", vy=" + phys.vy);
+        System.out.println("  onLiana: " + phys.onLiana + ", onGround: " + phys.onGround);
+        System.out.println("  Bounds check:");
+        System.out.println("    MIN_X=" + GameRules.MIN_X + " (is x < MIN_X? " + (phys.x < GameRules.MIN_X) + ")");
+        System.out.println("    MAX_X=" + GameRules.MAX_X + " (is x > MAX_X? " + (phys.x > GameRules.MAX_X) + ")");
+        System.out.println("    MAX_Y=" + GameRules.MAX_Y + " (is y > MAX_Y? " + (phys.y > GameRules.MAX_Y) + ")");
+        System.out.println("════════════════════════════════════════");
+        
         phys.x = 150.0f;
         phys.y = 490.0f;
         phys.vy = 0;
@@ -360,17 +342,13 @@ final class PhysicsEngine {
         phys.lianaIndex = -1;
     }
 
-    // Conversión de altura lógica (0-12) a píxeles (540-30)
     private static float heightToPixels(int logicalHeight) {
-        // Altura lógica 0 = piso (y=540)
-        // Altura lógica 12 = tope (y=30)
         float min_y = 30.0f;
         float max_y = 540.0f;
-        float range = max_y - min_y;  // 510
+        float range = max_y - min_y;
         return max_y - (logicalHeight / 12.0f) * range;
     }
 
-    // ======== HITBOXES centrados ========
     static final class Rect {
         final float x, y, w, h;
         Rect(float x, float y, float w, float h){ this.x=x; this.y=y; this.w=w; this.h=h; }
