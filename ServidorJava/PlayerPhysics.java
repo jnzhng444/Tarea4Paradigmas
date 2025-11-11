@@ -1,11 +1,14 @@
-
-
 final class PlayerPhysics {
+    // ===== Campos originales =====
     float x, y;        // posición en píxeles (x,y es el CENTRO del jugador)
     float vx, vy;      // velocidad
     boolean onGround;
     boolean onLiana;
     int lianaIndex;
+
+    // ===== Nuevos campos =====
+    int score = 0;            // puntaje acumulado
+    boolean respawned = false; // se marca true al morir; se limpia tras enviar STATE
 
     PlayerPhysics() {
         x = 150.0f;       // centro horizontal
@@ -15,5 +18,18 @@ final class PlayerPhysics {
         onGround = true;
         onLiana = false;
         lianaIndex = -1;
+    }
+
+    // ===== Helpers nuevos =====
+    void addScore(int pts) {
+        score += pts;
+    }
+
+    void markRespawned() {
+        respawned = true;
+    }
+
+    void clearRespawned() {
+        respawned = false;
     }
 }

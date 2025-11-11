@@ -1,5 +1,3 @@
-
-
 import java.util.*;
 
 final class Level {
@@ -14,6 +12,11 @@ final class Level {
     private final List<Platform>  platforms = new ArrayList<>();
     private final List<LianaSlot> lianaSlots = new ArrayList<>();
     private final Map<String, Integer> idToIndex = new HashMap<>(); // "1" -> 0, etc.
+
+    // === NUEVO: entidades dinámicas ===
+    private final List<CrocodileRed> redCrocodiles = new ArrayList<>();
+    private final List<CrocodileBlue> blueCrocodiles = new ArrayList<>();
+    private final List<Fruit> fruitList = new ArrayList<>();
 
     Level() {
         // Plataformas
@@ -72,4 +75,14 @@ final class Level {
         for (var s : lianaSlots) list.add(s.liana);
         return list;
     }
+
+    // === NUEVO: getters públicos de entidades (CORREGIDO - sin recursión) ===
+    List<CrocodileRed> crocodileReds() { return redCrocodiles; }      
+    List<CrocodileBlue> crocodileBlues() { return blueCrocodiles; }  
+    List<Fruit> fruits() { return fruitList; }                        
+    
+     // Helpers de spawn
+    void addFruit(Fruit f){ fruitList.add(Objects.requireNonNull(f)); }
+    void addCrocRed(CrocodileRed c){ redCrocodiles.add(Objects.requireNonNull(c)); }
+    void addCrocBlue(CrocodileBlue c){ blueCrocodiles.add(Objects.requireNonNull(c)); }
 }

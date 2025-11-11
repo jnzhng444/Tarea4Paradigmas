@@ -1,4 +1,3 @@
-
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -52,6 +51,7 @@ public final class Game {
 
     public void deleteFruit(final LianaId l, final Height h){
         fruits.removeIf(f -> f.position().liana().equals(l) && f.position().height().equals(h));
+        level.fruits().removeIf(f -> f.position().liana().equals(l) && f.position().height().equals(h));  // ⭐ AGREGAR
         emitState();
     }
 
@@ -84,6 +84,10 @@ public final class Game {
         // Mover entidades
         for (var r : reds)  r.step();
         for (var b : blues) b.step();
+
+        // ⭐ LIMPIAR frutas colectadas (borrar completamente)
+        fruits.removeIf(f -> f.isCollected());
+        level.fruits().removeIf(f -> f.isCollected());
 
         emitState();
     }
@@ -180,7 +184,8 @@ public final class Game {
             playersTxt.append("id=").append(id.value())
                       .append(",x=").append(String.format("%.1f", phys.x))
                       .append(",y=").append(String.format("%.1f", phys.y))
-                      .append(",onLiana=").append(phys.onLiana ? "1" : "0");
+                      .append(",onLiana=").append(phys.onLiana ? "1" : "0")
+                      .append(",score=").append(phys.score);  // ⭐ AGREGAR SCORE
         }
 
         var redsTxt = new StringBuilder();
@@ -201,11 +206,13 @@ public final class Game {
 
         var fruitsTxt = new StringBuilder();
         for (var f : fruits) {
+            // Ya no necesitamos verificar isCollected() porque se borran en step()
             var p = f.position();
             if (fruitsTxt.length() > 0) fruitsTxt.append("|");
             fruitsTxt.append("l=").append(p.liana().value())
                      .append(",h=").append(p.height().value())
-                     .append(",pts=").append(f.points().value());
+                     .append(",pts=").append(f.points().value())
+                     .append(",col=0");  // Siempre 0 porque las collected ya fueron borradas
         }
 
         return "STATE players=[" + playersTxt + "] reds=[" + redsTxt +
@@ -215,19 +222,25 @@ public final class Game {
     // ===== Helpers internos (validan liana antes de spawnear) =====
     private boolean safeSpawnRed(LianaId l, Height h) {
         if (!level.hasLiana(l)) return false;
-        reds.add(factory.newRed(l, h, speed));
+        var red = factory.newRed(l, h, speed);
+        reds.add(red);
+        level.addCrocRed(red);  // ⭐ AGREGAR AL LEVEL
         return true;
     }
 
     private boolean safeSpawnBlue(LianaId l) {
         if (!level.hasLiana(l)) return false;
-        blues.add(factory.newBlue(l, speed));
+        var blue = factory.newBlue(l, speed);
+        blues.add(blue);
+        level.addCrocBlue(blue);  // ⭐ AGREGAR AL LEVEL
         return true;
     }
 
     private boolean safeSpawnFruit(LianaId l, Height h, Points p) {
         if (!level.hasLiana(l)) return false;
-        fruits.add(factory.newFruit(l, h, p));
+        var fruit = factory.newFruit(l, h, p);
+        fruits.add(fruit);
+        level.addFruit(fruit);  // ⭐ AGREGAR AL LEVEL
         return true;
     }
 }
