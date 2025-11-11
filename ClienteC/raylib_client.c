@@ -488,12 +488,6 @@ static void draw_player(PlayerState* p) {
     float baseDrawX = hb.x + hb.width  * 0.5f - g_player_sprite.width  * 0.5f;
     float baseDrawY = hb.y + hb.height - g_player_sprite.height + g_feet_offset;
 
-    float platY = 0.0f;
-    if (find_floor_y_under(&g_level, hb, &platY)) {
-        float feetY_now = baseDrawY + g_player_sprite.height;
-        float delta = platY - feetY_now;
-        if (delta > -20.0f && delta < 20.0f) baseDrawY += delta;
-    }
 
     Rectangle src = {0, 0, (float)g_player_sprite.width, (float)g_player_sprite.height};
     if (!p->facingRight) src.width = -src.width;

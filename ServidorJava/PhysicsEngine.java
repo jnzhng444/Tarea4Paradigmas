@@ -117,28 +117,50 @@ final class PhysicsEngine {
             // Gravedad + integración
             if (!phys.onGround) phys.vy += GameRules.GRAVITY * dt;
             phys.x += phys.vx * dt;
+            
+            //SWEPT COLLISION: Guardar posición anterior antes de aplicar Y
+            float prevY = phys.y;
             phys.y += phys.vy * dt;
 
             // Fricción
             phys.vx *= 0.85f;
             if (Math.abs(phys.vx) < 5.0f) phys.vx = 0;
 
-            // Suelo: usando y como CENTRO
+            // Suelo: usando y como CENTRO con swept collision
             phys.onGround = false;
-            if (phys.vy >= 0) {
-                float playerBottom = phys.y + PLAYER_HEIGHT * 0.5f;
-                float playerLeft   = phys.x - PLAYER_WIDTH  * 0.5f;
-                float playerRight  = phys.x + PLAYER_WIDTH  * 0.5f;
+            
+            float playerLeft   = phys.x - PLAYER_WIDTH  * 0.5f;
+            float playerRight  = phys.x + PLAYER_WIDTH  * 0.5f;
+            float playerTop    = phys.y - PLAYER_HEIGHT * 0.5f;
+            
+            float prevBottom = prevY + PLAYER_HEIGHT * 0.5f;
+            float currBottom = phys.y + PLAYER_HEIGHT * 0.5f;
 
-                for (Platform p : platforms) {
-                    boolean overlapX = playerRight > p.x && playerLeft < p.x + p.w;
-                    if (overlapX && playerBottom >= p.y && playerBottom <= p.y + 10.0f) {
-                        phys.onGround = true;
-                        phys.y = p.y - (PLAYER_HEIGHT * 0.5f);
-                        phys.vy = 0;
-                        break;
+            for (Platform p : platforms) {
+                boolean overlapX = playerRight > p.x && playerLeft < p.x + p.w;
+                
+                if (!overlapX) continue;
+                
+                // SOLO detectar colisión con la SUPERFICIE (arriba de plataforma)
+                // NO con el techo (abajo de plataforma)
+                
+                if (phys.vy >= 0) {
+                    // CAYENDO: Swept collision desde arriba
+                    if (prevBottom <= p.y && currBottom >= p.y) {
+                        // En lugar de snap instantáneo, solo snap si estamos muy cerca
+                        // Esto suaviza el aterrizaje
+                        float distToSurface = currBottom - p.y;
+                        
+                        if (distToSurface <= 15.0f) {  // Ventana de snap más amplia
+                            System.out.println("[PLATFORM] Landed! distToSurface=" + distToSurface + " platform.y=" + p.y);
+                            phys.onGround = true;
+                            phys.y = p.y - (PLAYER_HEIGHT * 0.5f);
+                            phys.vy = 0;
+                            break;
+                        }
                     }
                 }
+
             }
 
             // Límites & caída
@@ -261,7 +283,7 @@ final class PhysicsEngine {
         phys.lianaIndex = -1;
     }
 
-    // ⭐ Conversión de altura lógica (0-12) a píxeles (540-30)
+    // Conversión de altura lógica (0-12) a píxeles (540-30)
     private static float heightToPixels(int logicalHeight) {
         // Altura lógica 0 = piso (y=540)
         // Altura lógica 12 = tope (y=30)
