@@ -17,7 +17,11 @@ final class Level {
 
     Level() {
         // Plataformas
-        platforms.add(new Platform(50, 520, 700, 20));      // piso
+        platforms.add(new Platform(50, 520, 200, 20));      // piso
+        platforms.add(new Platform(300, 500, 100, 20));    
+        platforms.add(new Platform(500, 510, 50, 20));     
+        platforms.add(new Platform(600, 510, 100, 20));
+        
         platforms.add(new Platform(80, 420, 200, 15));      // nivel 1
         platforms.add(new Platform(520, 420, 200, 15));
         platforms.add(new Platform(50, 320, 180, 15));      // nivel 2

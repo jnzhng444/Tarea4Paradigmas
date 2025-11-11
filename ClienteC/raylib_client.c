@@ -257,21 +257,106 @@ static void on_net_disconnect(void) {
     g_connected = false;
 }
 
-// ============ INPUT (solo envía comandos al servidor) ============
+// ============ INPUT (MEJORADO: continuo + pequeño) ============
+static double g_key_hold_time[5] = {0}; // Tiempo que cada tecla ha estado presionada
+static double g_repeat_timers[4] = {0}; // Timers para repetición continua
+static const double INITIAL_DELAY = 0.15; // Segundos antes de movimiento continuo
+static const double REPEAT_RATE = 0.05;   // Segundos entre repeticiones (continuo)
+
+typedef enum {
+    INPUT_LEFT = 0,
+    INPUT_RIGHT = 1,
+    INPUT_UP = 2,
+    INPUT_DOWN = 3,
+    INPUT_JUMP = 4
+} InputKey;
+
 static void process_input(void) {
-    // Enviar solo cuando se presiona la tecla (no mantener presionada)
-    if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_A)) {
-        net_send("MOVE LEFT\n");
+    double dt = GetFrameTime();
+    
+    // LEFT
+    if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A)) {
+        g_key_hold_time[INPUT_LEFT] += dt;
+        
+        if (g_key_hold_time[INPUT_LEFT] < INITIAL_DELAY) {
+            // Primera presión - movimiento pequeño (solo una vez)
+            if (g_key_hold_time[INPUT_LEFT] <= dt) {
+                net_send("MOVE LEFT\n");
+            }
+        } else {
+            // Movimiento continuo
+            g_repeat_timers[INPUT_LEFT] += dt;
+            if (g_repeat_timers[INPUT_LEFT] >= REPEAT_RATE) {
+                net_send("MOVE LEFT\n");
+                g_repeat_timers[INPUT_LEFT] = 0;
+            }
+        }
+    } else {
+        g_key_hold_time[INPUT_LEFT] = 0;
+        g_repeat_timers[INPUT_LEFT] = 0;
     }
-    if (IsKeyPressed(KEY_RIGHT) || IsKeyPressed(KEY_D)) {
-        net_send("MOVE RIGHT\n");
+    
+    // RIGHT
+    if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D)) {
+        g_key_hold_time[INPUT_RIGHT] += dt;
+        
+        if (g_key_hold_time[INPUT_RIGHT] < INITIAL_DELAY) {
+            if (g_key_hold_time[INPUT_RIGHT] <= dt) {
+                net_send("MOVE RIGHT\n");
+            }
+        } else {
+            g_repeat_timers[INPUT_RIGHT] += dt;
+            if (g_repeat_timers[INPUT_RIGHT] >= REPEAT_RATE) {
+                net_send("MOVE RIGHT\n");
+                g_repeat_timers[INPUT_RIGHT] = 0;
+            }
+        }
+    } else {
+        g_key_hold_time[INPUT_RIGHT] = 0;
+        g_repeat_timers[INPUT_RIGHT] = 0;
     }
-    if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) {
-        net_send("MOVE UP\n");
+    
+    // UP
+    if (IsKeyDown(KEY_UP) || IsKeyDown(KEY_W)) {
+        g_key_hold_time[INPUT_UP] += dt;
+        
+        if (g_key_hold_time[INPUT_UP] < INITIAL_DELAY) {
+            if (g_key_hold_time[INPUT_UP] <= dt) {
+                net_send("MOVE UP\n");
+            }
+        } else {
+            g_repeat_timers[INPUT_UP] += dt;
+            if (g_repeat_timers[INPUT_UP] >= REPEAT_RATE) {
+                net_send("MOVE UP\n");
+                g_repeat_timers[INPUT_UP] = 0;
+            }
+        }
+    } else {
+        g_key_hold_time[INPUT_UP] = 0;
+        g_repeat_timers[INPUT_UP] = 0;
     }
-    if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) {
-        net_send("MOVE DOWN\n");
+    
+    // DOWN
+    if (IsKeyDown(KEY_DOWN) || IsKeyDown(KEY_S)) {
+        g_key_hold_time[INPUT_DOWN] += dt;
+        
+        if (g_key_hold_time[INPUT_DOWN] < INITIAL_DELAY) {
+            if (g_key_hold_time[INPUT_DOWN] <= dt) {
+                net_send("MOVE DOWN\n");
+            }
+        } else {
+            g_repeat_timers[INPUT_DOWN] += dt;
+            if (g_repeat_timers[INPUT_DOWN] >= REPEAT_RATE) {
+                net_send("MOVE DOWN\n");
+                g_repeat_timers[INPUT_DOWN] = 0;
+            }
+        }
+    } else {
+        g_key_hold_time[INPUT_DOWN] = 0;
+        g_repeat_timers[INPUT_DOWN] = 0;
     }
+    
+    // JUMP (solo al presionar, no continuo)
     if (IsKeyPressed(KEY_SPACE)) {
         net_send("MOVE JUMP\n");
     }

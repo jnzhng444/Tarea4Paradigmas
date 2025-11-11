@@ -10,7 +10,10 @@ void level_init(Level* lvl) {
 
     // ===== PLATAFORMAS (estilo escalera hacia arriba) =====
     // Piso
-    lvl->platforms[lvl->platformCount++] = (Platform){{50, 520, 700, 20}};
+    lvl->platforms[lvl->platformCount++] = (Platform){{50, 520, 200, 20}};
+    lvl->platforms[lvl->platformCount++] = (Platform){{300, 500, 100, 20}};
+    lvl->platforms[lvl->platformCount++] = (Platform){{500, 510, 50, 20}};
+    lvl->platforms[lvl->platformCount++] = (Platform){{600, 510, 100, 20}};
     
     // Nivel 1 (dos plataformas laterales)
     lvl->platforms[lvl->platformCount++] = (Platform){{80, 420, 200, 15}};

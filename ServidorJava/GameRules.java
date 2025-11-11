@@ -11,10 +11,10 @@ public final class GameRules {
     public static final float MAX_Y = 540.0f;
 
     // Física
-    public static final float GRAVITY     = 800.0f;
-    public static final float MOVE_SPEED  = 200.0f;
-    public static final float JUMP_FORCE  = 350.0f;
-    public static final float CLIMB_SPEED = 150.0f;
+    public static final float GRAVITY     = 500.0f;
+    public static final float MOVE_SPEED  = 50.0f;
+    public static final float JUMP_FORCE  = 250.0f;
+    public static final float CLIMB_SPEED = 75.0f;
 
     private GameRules() {}
 }
