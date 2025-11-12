@@ -16,7 +16,7 @@ public final class Game {
 
     private final Map<PlayerId, Player> players = new HashMap<>();
 
-    private Speed speed = new Speed("0.1");
+    private Speed speed = new Speed("0.03");
 
     private Integer ticksSinceLastBlueSpawn = Integer.valueOf(0);
     private static final Integer BLUE_SPAWN_INTERVAL = Integer.valueOf(360); // aprox cada 18 segundos

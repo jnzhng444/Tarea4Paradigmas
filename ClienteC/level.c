@@ -43,32 +43,32 @@ void level_init(Level* lvl) {
     
     // Liana 0 (ID=1 en servidor, x=100)
     lvl->lianas[0].x = 100.0f;
-    lvl->lianas[0].topY = 120.0f;
+    lvl->lianas[0].topY = 140.0f;
     lvl->lianas[0].bottomY = 520.0f;
     
     // Liana 1 (ID=2 en servidor, x=220)
     lvl->lianas[1].x = 220.0f;
-    lvl->lianas[1].topY = 120.0f;
+    lvl->lianas[1].topY = 140.0f;
     lvl->lianas[1].bottomY = 520.0f;
     
     // Liana 2 (ID=3 en servidor, x=340)
     lvl->lianas[2].x = 340.0f;
-    lvl->lianas[2].topY = 120.0f;
+    lvl->lianas[2].topY = 240.0f;
     lvl->lianas[2].bottomY = 520.0f;
     
     // Liana 3 (ID=4 en servidor, x=460)
     lvl->lianas[3].x = 460.0f;
-    lvl->lianas[3].topY = 120.0f;
+    lvl->lianas[3].topY = 140.0f;
     lvl->lianas[3].bottomY = 520.0f;
     
     // Liana 4 (ID=5 en servidor, x=580)
-    lvl->lianas[4].x = 580.0f;
-    lvl->lianas[4].topY = 120.0f;
+    lvl->lianas[4].x = 540.0f;
+    lvl->lianas[4].topY = 160.0f;
     lvl->lianas[4].bottomY = 520.0f;
     
     // Liana 5 (ID=6 en servidor, x=700)
     lvl->lianas[5].x = 700.0f;
-    lvl->lianas[5].topY = 160.0f;
+    lvl->lianas[5].topY = 80.0f;
     lvl->lianas[5].bottomY = 520.0f;
     
     lvl->lianaCount = DKJ_LIANAS;

@@ -40,27 +40,27 @@ final class Level {
         // Puedes cambiar topY y bottomY para cada liana individualmente
         
         // Liana 1 (x=100)
-        lianaSlots.add(new LianaSlot(new LianaId("1"), new Liana(Float.valueOf(100.0f), Float.valueOf(120.0f), Float.valueOf(520.0f))));
+        lianaSlots.add(new LianaSlot(new LianaId("1"), new Liana(Float.valueOf(100.0f), Float.valueOf(140.0f), Float.valueOf(520.0f))));
         idToIndex.put("1", Integer.valueOf(0));
         
         // Liana 2 (x=220)
-        lianaSlots.add(new LianaSlot(new LianaId("2"), new Liana(Float.valueOf(220.0f), Float.valueOf(120.0f), Float.valueOf(520.0f))));
+        lianaSlots.add(new LianaSlot(new LianaId("2"), new Liana(Float.valueOf(220.0f), Float.valueOf(140.0f), Float.valueOf(520.0f))));
         idToIndex.put("2", Integer.valueOf(1));
         
         // Liana 3 (x=340)
-        lianaSlots.add(new LianaSlot(new LianaId("3"), new Liana(Float.valueOf(340.0f), Float.valueOf(120.0f), Float.valueOf(520.0f))));
+        lianaSlots.add(new LianaSlot(new LianaId("3"), new Liana(Float.valueOf(340.0f), Float.valueOf(240.0f), Float.valueOf(520.0f))));
         idToIndex.put("3", Integer.valueOf(2));
         
         // Liana 4 (x=460)
-        lianaSlots.add(new LianaSlot(new LianaId("4"), new Liana(Float.valueOf(460.0f), Float.valueOf(120.0f), Float.valueOf(520.0f))));
+        lianaSlots.add(new LianaSlot(new LianaId("4"), new Liana(Float.valueOf(460.0f), Float.valueOf(140.0f), Float.valueOf(520.0f))));
         idToIndex.put("4", Integer.valueOf(3));
         
         // Liana 5 (x=580)
-        lianaSlots.add(new LianaSlot(new LianaId("5"), new Liana(Float.valueOf(580.0f), Float.valueOf(120.0f), Float.valueOf(520.0f))));
+        lianaSlots.add(new LianaSlot(new LianaId("5"), new Liana(Float.valueOf(540.0f), Float.valueOf(160.0f), Float.valueOf(520.0f))));
         idToIndex.put("5", Integer.valueOf(4));
         
         // Liana 6 (x=700)
-        lianaSlots.add(new LianaSlot(new LianaId("6"), new Liana(Float.valueOf(700.0f), Float.valueOf(160.0f), Float.valueOf(520.0f))));
+        lianaSlots.add(new LianaSlot(new LianaId("6"), new Liana(Float.valueOf(700.0f), Float.valueOf(80.0f), Float.valueOf(520.0f))));
         idToIndex.put("6", Integer.valueOf(5));
     }
 
