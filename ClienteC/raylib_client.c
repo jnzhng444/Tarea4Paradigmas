@@ -551,7 +551,7 @@ static void draw_red_croc(RedCroc* r) {
     float y = r->pos.y;
     
     // Escala para hacer el cocodrilo más grande
-    float scale = 2.3f;
+    float scale = 2.0f;
     
     // Determinar rotación basada en dirección de movimiento
     float rotation = r->goingUp ? 180.0f : 0.0f;
@@ -584,7 +584,7 @@ static void draw_blue_croc(BlueCroc* b) {
     float y = b->pos.y;
     
     // Escala para hacer el cocodrilo más grande
-    float scale = 2.3f;
+    float scale = 2.0f;
     
     // Cuando camina: rotar 90 grados y espejear verticalmente
     float rotation = b->isWalking ? 90.0f : 0.0f;

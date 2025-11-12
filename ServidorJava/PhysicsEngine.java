@@ -108,21 +108,24 @@ final class PhysicsEngine {
                 for (CrocodileBlue bc : level.crocodileBlues()) {
                     try {
                         Float cx, cy;
+                        Rect blueRect;
                         
                         // Si está caminando en plataforma (liana "0")
                         if (bc.position().liana().value().equals("0")) {
                             cx = bc.getPlatformX();
                             Integer logicalH = Integer.parseInt(bc.position().height().value());
                             cy = heightToPixels(logicalH);
+                            blueRect = crocBlueWalkingRect(cx, cy);  // Hitbox horizontal
                         } 
                         // Si está bajando en una liana
                         else {
                             cx = level.xOf(bc.position().liana());
                             Integer logicalH = Integer.parseInt(bc.position().height().value());
                             cy = heightToPixels(logicalH);
+                            blueRect = crocBlueDescendingRect(cx, cy);  // Hitbox vertical
                         }
 
-                        if (rectOverlap(pr, crocRect(cx, cy, Boolean.FALSE))) {
+                        if (rectOverlap(pr, blueRect)) {
                             System.out.println("[COLLISION ON LIANA] BLUE CROC HIT!");
                             respawn(phys);
                             phys.markRespawned();
@@ -273,21 +276,24 @@ final class PhysicsEngine {
             for (CrocodileBlue bc : level.crocodileBlues()) {
                 try {
                     Float cx, cy;
+                    Rect blueRect;
                     
                     // Si está caminando en plataforma (liana "0")
                     if (bc.position().liana().value().equals("0")) {
                         cx = bc.getPlatformX();
                         Integer logicalH = Integer.parseInt(bc.position().height().value());
                         cy = heightToPixels(logicalH);
+                        blueRect = crocBlueWalkingRect(cx, cy);  // Hitbox horizontal
                     } 
                     // Si está bajando en una liana
                     else {
                         cx = level.xOf(bc.position().liana());
                         Integer logicalH = Integer.parseInt(bc.position().height().value());
                         cy = heightToPixels(logicalH);
+                        blueRect = crocBlueDescendingRect(cx, cy);  // Hitbox vertical
                     }
 
-                    if (rectOverlap(pr, crocRect(cx, cy, Boolean.FALSE))) {
+                    if (rectOverlap(pr, blueRect)) {
                         System.out.println("[COLLISION] BLUE CROC HIT!");
                         respawn(phys);
                         phys.markRespawned();
@@ -379,9 +385,25 @@ final class PhysicsEngine {
     }
 
     private static Rect crocRect(Float x, Float y, Boolean isRed) {
-        // Hitboxes ajustadas para sprites escalados 2.3x
-        Float w = isRed ? Float.valueOf(60f) : Float.valueOf(51f);
-        Float h = isRed ? Float.valueOf(51f) : Float.valueOf(41f);
+        // Hitbox para cocodrilo rojo (siempre vertical) - escala 2.0x
+        Float w = Float.valueOf(52f);
+        Float h = Float.valueOf(44f);
+        return new Rect(x - w/2, y - h/2, w, h);
+    }
+    
+    private static Rect crocBlueWalkingRect(Float x, Float y) {
+        // Hitbox para azul caminando (rotado 90°, horizontal) - escala 2.0x
+        // Cuando está horizontal: más ancho, menos alto
+        Float w = Float.valueOf(44f);  // Ancho horizontal
+        Float h = Float.valueOf(30f);  // Altura reducida para facilitar salto
+        return new Rect(x - w/2, y - h/2, w, h);
+    }
+    
+    private static Rect crocBlueDescendingRect(Float x, Float y) {
+        // Hitbox para azul bajando (vertical) - escala 2.0x
+        // Cuando está vertical: menos ancho, más alto
+        Float w = Float.valueOf(36f);  // Ancho vertical
+        Float h = Float.valueOf(44f);  // Altura vertical
         return new Rect(x - w/2, y - h/2, w, h);
     }
 
