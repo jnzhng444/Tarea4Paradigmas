@@ -68,8 +68,11 @@ public final class CrocodileBlue implements Entity {
 
     public CrocodileBlue step(Level level){
         try {
+            Float speedValue = Float.parseFloat(speed.value());
+            
             if (state == CrocodileBlueState.WALKING_ON_PLATFORM) {
-                Float moveSpeed = Float.valueOf(1.5f);
+                // Usar velocidad x50 para movimiento horizontal (como antes, pero basado en speed)
+                Float moveSpeed = speedValue * Float.valueOf(50.0f);
                 platformX = platformX + moveSpeed;
                 
                 // Solo verificar la liana objetivo
@@ -110,8 +113,8 @@ public final class CrocodileBlue implements Entity {
                 
             } else {
                 // DESCENDING_LIANA
-                Float descentSpeed = Float.valueOf(0.1f);
-                heightFloat = heightFloat - descentSpeed;
+                // Usar la misma velocidad que el rojo para descender
+                heightFloat = heightFloat - speedValue;
                 
                 Integer heightInt = Math.round(heightFloat);
                 this.height = new Height(heightInt.toString());
