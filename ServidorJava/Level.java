@@ -36,14 +36,32 @@ final class Level {
         platforms.add(new Platform(Float.valueOf(40), Float.valueOf(130), Float.valueOf(500), Float.valueOf(15)));     // nivel 5
 
 
-        // Lianas con IDs "1".."N"
-        for (Integer i = Integer.valueOf(0); i < Integer.valueOf(6); i = i + 1) {
-            Float x = Float.valueOf(100.0f + i * 120.0f);
-            LianaId id = new LianaId(String.valueOf(i + 1));
-            Liana    li = new Liana(x, Float.valueOf(30.0f), Float.valueOf(540.0f));
-            lianaSlots.add(new LianaSlot(id, li));
-            idToIndex.put(id.value(), i);
-        }
+        // Lianas personalizables - Formato: (x, topY, bottomY)
+        // Puedes cambiar topY y bottomY para cada liana individualmente
+        
+        // Liana 1 (x=100)
+        lianaSlots.add(new LianaSlot(new LianaId("1"), new Liana(Float.valueOf(100.0f), Float.valueOf(120.0f), Float.valueOf(520.0f))));
+        idToIndex.put("1", Integer.valueOf(0));
+        
+        // Liana 2 (x=220)
+        lianaSlots.add(new LianaSlot(new LianaId("2"), new Liana(Float.valueOf(220.0f), Float.valueOf(120.0f), Float.valueOf(520.0f))));
+        idToIndex.put("2", Integer.valueOf(1));
+        
+        // Liana 3 (x=340)
+        lianaSlots.add(new LianaSlot(new LianaId("3"), new Liana(Float.valueOf(340.0f), Float.valueOf(120.0f), Float.valueOf(520.0f))));
+        idToIndex.put("3", Integer.valueOf(2));
+        
+        // Liana 4 (x=460)
+        lianaSlots.add(new LianaSlot(new LianaId("4"), new Liana(Float.valueOf(460.0f), Float.valueOf(120.0f), Float.valueOf(520.0f))));
+        idToIndex.put("4", Integer.valueOf(3));
+        
+        // Liana 5 (x=580)
+        lianaSlots.add(new LianaSlot(new LianaId("5"), new Liana(Float.valueOf(580.0f), Float.valueOf(120.0f), Float.valueOf(520.0f))));
+        idToIndex.put("5", Integer.valueOf(4));
+        
+        // Liana 6 (x=700)
+        lianaSlots.add(new LianaSlot(new LianaId("6"), new Liana(Float.valueOf(700.0f), Float.valueOf(160.0f), Float.valueOf(520.0f))));
+        idToIndex.put("6", Integer.valueOf(5));
     }
 
     List<Platform> platforms() { return platforms; }
@@ -68,6 +86,105 @@ final class Level {
         var li = lianaById(id).orElseThrow(() ->
             new IllegalArgumentException("Liana no existe: " + id.value()));
         return li.x;
+    }
+
+    // Nueva función: obtener topY de una liana específica
+    Float topYOf(LianaId id) {
+        var li = lianaById(id).orElseThrow(() ->
+            new IllegalArgumentException("Liana no existe: " + id.value()));
+        return li.topY;
+    }
+
+    // Nueva función: calcular altura lógica inicial para un cocodrilo azul spawneado en una liana
+    Height getInitialHeightForLiana(LianaId id) {
+        Float topY = topYOf(id);
+        // Convertir topY a altura lógica
+        // topY=120 -> altura=12, topY=520 -> altura=0
+        Float min_y = Float.valueOf(120.0f);
+        Float max_y = Float.valueOf(520.0f);
+        Float range = max_y - min_y;
+        Float logicalHeight = ((max_y - topY) / range) * 12.0f;
+        Integer heightInt = Math.round(logicalHeight);
+        return new Height(heightInt.toString());
+    }
+
+    // NUEVO: Mapear altura lógica (0-12) al espacio real de la liana
+    // 0 siempre es el bottomY de la liana, 12 siempre es el topY de la liana
+    Height mapHeightToLiana(LianaId id, Height logicalHeight) {
+        // Obtener topY y bottomY de la liana
+        var li = lianaById(id).orElseThrow(() ->
+            new IllegalArgumentException("Liana no existe: " + id.value()));
+        
+        // Parsear altura solicitada (0-12)
+        Integer requested;
+        try {
+            requested = Integer.parseInt(logicalHeight.value());
+        } catch (Exception e) {
+            requested = Integer.valueOf(0);
+        }
+        
+        // Clampear al rango 0-12
+        requested = Math.max(0, Math.min(12, requested));
+        
+        // Mapear proporcionalmente: 
+        // altura 0 (lógica) -> bottomY de esta liana
+        // altura 12 (lógica) -> topY de esta liana
+        Float lianaRange = li.bottomY - li.topY;  // Rango en píxeles de esta liana
+        Float mappedY = li.bottomY - (requested / 12.0f) * lianaRange;
+        
+        // Convertir de píxeles de vuelta a altura lógica global (para el motor de física)
+        Float global_min_y = Float.valueOf(120.0f);
+        Float global_max_y = Float.valueOf(520.0f);
+        Float global_range = global_max_y - global_min_y;
+        Float globalLogicalHeight = ((global_max_y - mappedY) / global_range) * 12.0f;
+        Integer finalHeight = Math.round(globalLogicalHeight);
+        
+        System.out.println("[LEVEL] Liana " + id.value() + 
+                          " - Logical height: " + requested + "/12" +
+                          " -> Pixel Y: " + Math.round(mappedY) + 
+                          " (liana range: " + Math.round(li.topY) + "-" + Math.round(li.bottomY) + ")" +
+                          " -> Global height: " + finalHeight);
+        
+        return new Height(finalHeight.toString());
+    }
+
+    // NUEVO: Obtener altura lógica mínima de una liana (bottomY convertido)
+    Float getMinHeightForLiana(LianaId id) {
+        var li = lianaById(id).orElseThrow(() ->
+            new IllegalArgumentException("Liana no existe: " + id.value()));
+        Float min_y = Float.valueOf(120.0f);
+        Float max_y = Float.valueOf(520.0f);
+        Float range = max_y - min_y;
+        return ((max_y - li.bottomY) / range) * 12.0f;
+    }
+
+    // NUEVO: Obtener altura lógica máxima de una liana (topY convertido)
+    Float getMaxHeightForLiana(LianaId id) {
+        var li = lianaById(id).orElseThrow(() ->
+            new IllegalArgumentException("Liana no existe: " + id.value()));
+        Float min_y = Float.valueOf(120.0f);
+        Float max_y = Float.valueOf(520.0f);
+        Float range = max_y - min_y;
+        return ((max_y - li.topY) / range) * 12.0f;
+    }
+
+    // NUEVO: Validar formato de altura (solo que esté en 0-12)
+    Boolean isHeightValidFormat(Height requestedHeight) {
+        Integer requested;
+        try {
+            requested = Integer.parseInt(requestedHeight.value());
+        } catch (Exception e) {
+            System.err.println("[LEVEL] Invalid height format: " + requestedHeight.value());
+            return Boolean.FALSE;
+        }
+        
+        // Validar que esté en el rango lógico 0-12
+        if (requested < 0 || requested > 12) {
+            System.err.println("[LEVEL] Height " + requested + " is outside logical range [0-12]");
+            return Boolean.FALSE;
+        }
+        
+        return Boolean.TRUE;
     }
 
     // Para físicas/jugador (se sigue usando la lista "simple"):

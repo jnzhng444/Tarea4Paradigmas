@@ -37,14 +37,40 @@ void level_init(Level* lvl) {
     // ---- Nota: se ha eliminado la plataforma que estaba arriba ({300, 40, 200, 20})
     //           tal y como solicitaste. Si quieres volver a añadirla, puedes hacerlo aquí.
 
-    // ===== LIANAS =====
-    float spacing = 120.0f;
-    float startX = 100.0f;
-    for (int i = 0; i < DKJ_LIANAS; i++) {
-        lvl->lianas[i].x = startX + i * spacing;
-        lvl->lianas[i].topY = 30.0f;
-        lvl->lianas[i].bottomY = 540.0f;
-    }
+    // ===== LIANAS PERSONALIZABLES =====
+    // Puedes cambiar topY y bottomY de cada liana individualmente
+    // IMPORTANTE: Los valores deben coincidir con el servidor (Level.java)
+    
+    // Liana 0 (ID=1 en servidor, x=100)
+    lvl->lianas[0].x = 100.0f;
+    lvl->lianas[0].topY = 120.0f;
+    lvl->lianas[0].bottomY = 520.0f;
+    
+    // Liana 1 (ID=2 en servidor, x=220)
+    lvl->lianas[1].x = 220.0f;
+    lvl->lianas[1].topY = 120.0f;
+    lvl->lianas[1].bottomY = 520.0f;
+    
+    // Liana 2 (ID=3 en servidor, x=340)
+    lvl->lianas[2].x = 340.0f;
+    lvl->lianas[2].topY = 120.0f;
+    lvl->lianas[2].bottomY = 520.0f;
+    
+    // Liana 3 (ID=4 en servidor, x=460)
+    lvl->lianas[3].x = 460.0f;
+    lvl->lianas[3].topY = 120.0f;
+    lvl->lianas[3].bottomY = 520.0f;
+    
+    // Liana 4 (ID=5 en servidor, x=580)
+    lvl->lianas[4].x = 580.0f;
+    lvl->lianas[4].topY = 120.0f;
+    lvl->lianas[4].bottomY = 520.0f;
+    
+    // Liana 5 (ID=6 en servidor, x=700)
+    lvl->lianas[5].x = 700.0f;
+    lvl->lianas[5].topY = 160.0f;
+    lvl->lianas[5].bottomY = 520.0f;
+    
     lvl->lianaCount = DKJ_LIANAS;
 
     // ===== META DK =====

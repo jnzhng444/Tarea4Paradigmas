@@ -338,9 +338,11 @@ final class PhysicsEngine {
     }
 
     private static Float heightToPixels(Integer logicalHeight) {
-        Float min_y = Float.valueOf(30.0f);
-        Float max_y = Float.valueOf(540.0f);
-        Float range = max_y - min_y;
+        // Mapea altura lógica (0-12) a píxeles del rango recortado (520-120)
+        // logicalHeight=0 -> y=520 (abajo), logicalHeight=12 -> y=120 (arriba)
+        Float min_y = Float.valueOf(120.0f);  // Top de la liana recortada
+        Float max_y = Float.valueOf(520.0f);  // Bottom de la liana recortada
+        Float range = max_y - min_y;  // 400 píxeles
         return max_y - (logicalHeight / 12.0f) * range;
     }
 

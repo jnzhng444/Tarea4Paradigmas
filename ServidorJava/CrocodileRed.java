@@ -6,24 +6,31 @@ public final class CrocodileRed implements Entity {
     private final Speed   speed;
     private Boolean goingUp;
     private Float heightFloat;  // NUEVO: mantener altura como float
+    private Float minHeight;    // Límite inferior de esta liana específica
+    private Float maxHeight;    // Límite superior de esta liana específica
     
-    private static final Integer MIN_HEIGHT = Integer.valueOf(0);
-    private static final Integer MAX_HEIGHT = Integer.valueOf(12);
+    private static final Integer GLOBAL_MIN_HEIGHT = Integer.valueOf(0);
+    private static final Integer GLOBAL_MAX_HEIGHT = Integer.valueOf(12);
 
-    public CrocodileRed(LianaId liana, Height height, Speed speed){
+    public CrocodileRed(LianaId liana, Height height, Speed speed, Float minH, Float maxH){
         this.liana = Objects.requireNonNull(liana);
         this.height = Objects.requireNonNull(height);
         this.speed = Objects.requireNonNull(speed);
         this.goingUp = Boolean.TRUE;
+        this.minHeight = minH;
+        this.maxHeight = maxH;
         
         // Inicializar heightFloat
         try {
             this.heightFloat = Float.parseFloat(height.value());
         } catch (Exception e) {
-            this.heightFloat = 6.0f;
+            this.heightFloat = (minH + maxH) / 2.0f;  // Default al medio del rango
         }
         
-        System.out.println("[RED CREATED] liana=" + liana.value() + " height=" + height.value() + " speed=" + speed.value());
+        System.out.println("[RED CREATED] liana=" + liana.value() + 
+                          " height=" + height.value() + 
+                          " speed=" + speed.value() + 
+                          " range=[" + minH + "-" + maxH + "]");
     }
     
     @Override public Position position(){ return new Position(liana, height); }
@@ -38,18 +45,18 @@ public final class CrocodileRed implements Entity {
             if (goingUp) {
                 heightFloat = heightFloat + speedValue;
                 
-                if (heightFloat >= MAX_HEIGHT.floatValue()) {
-                    heightFloat = MAX_HEIGHT.floatValue();
+                if (heightFloat >= maxHeight) {
+                    heightFloat = maxHeight;
                     goingUp = Boolean.FALSE;
-                    System.out.println("[RED] Reached MAX, going DOWN now");
+                    System.out.println("[RED] Reached MAX (" + maxHeight + "), going DOWN now");
                 }
             } else {
                 heightFloat = heightFloat - speedValue;
                 
-                if (heightFloat <= MIN_HEIGHT.floatValue()) {
-                    heightFloat = MIN_HEIGHT.floatValue();
+                if (heightFloat <= minHeight) {
+                    heightFloat = minHeight;
                     goingUp = Boolean.TRUE;
-                    System.out.println("[RED] Reached MIN, going UP now");
+                    System.out.println("[RED] Reached MIN (" + minHeight + "), going UP now");
                 }
             }
             

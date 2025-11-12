@@ -66,6 +66,8 @@ public final class AdminConsole implements Runnable {
 
             Notas:
               • Usa el <PLAYER_ID> que aparece en el cliente GUI (You: <uuid>).
+              • <ALTURA> debe estar en el rango 0-12 (0=abajo, 12=arriba de la liana).
+              • <LIANA> debe ser un número entre 1 y 6.
               • Azules desde admin aparecen directo en la liana especificada.
               • 'quit' cierra la consola pero deja el servidor corriendo.
             """);

@@ -84,13 +84,18 @@ public final class CrocodileBlue implements Entity {
                         this.platformX = targetX;
                         this.state = CrocodileBlueState.DESCENDING_LIANA;
                         
+                        // Usar la altura inicial de la liana específica (basada en su topY)
+                        Height initialHeight = level.getInitialHeightForLiana(targetLiana);
+                        this.height = initialHeight;
+                        
                         try {
-                            this.heightFloat = Float.parseFloat(height.value());
+                            this.heightFloat = Float.parseFloat(initialHeight.value());
                         } catch (Exception e) {
                             this.heightFloat = Float.valueOf(12.0f);
                         }
                         
-                        System.out.println("[BLUE] Started descending on target liana " + targetLiana.value() + " at x=" + platformX);
+                        System.out.println("[BLUE] Started descending on target liana " + targetLiana.value() + 
+                                         " at x=" + platformX + " from height=" + initialHeight.value());
                         return this;
                     }
                 }

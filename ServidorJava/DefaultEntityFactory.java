@@ -11,9 +11,10 @@ public final class DefaultEntityFactory {
         return new CrocodileBlue(liana, height, speed);
     }
 
-    // Rojo: liana + altura + velocidad
-    public CrocodileRed newRed(final LianaId liana, final Height height, final Speed speed) {
-        return new CrocodileRed(liana, height, speed);
+    // Rojo: liana + altura + velocidad + límites de la liana
+    public CrocodileRed newRed(final LianaId liana, final Height height, final Speed speed, 
+                               final Float minHeight, final Float maxHeight) {
+        return new CrocodileRed(liana, height, speed, minHeight, maxHeight);
     }
 
     public Fruit newFruit(final LianaId liana, final Height height, final Points points) {

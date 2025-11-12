@@ -127,21 +127,21 @@ public final class CommandDispatcherWithGame {
             if (tk.size()<Integer.valueOf(5)) return err(Integer.valueOf(400),"Usage: ADMIN <PID> SPAWN CROCODILE RED|BLUE ...");
             String color = tk.get(Integer.valueOf(4)).toUpperCase(Locale.ROOT);
             if (color.equals("RED")) {
-                if (tk.size()!=Integer.valueOf(7)) return err(Integer.valueOf(400),"Usage: ADMIN <PID> SPAWN CROCODILE RED <LIANA> <ALTURA>");
-                game.spawnCrocodileRed(new LianaId(tk.get(Integer.valueOf(5))), new Height(tk.get(Integer.valueOf(6))));
-                return "ACK ADMIN SPAWN CROCODILE RED";
+                if (tk.size()!=Integer.valueOf(7)) return err(Integer.valueOf(400),"Usage: ADMIN <PID> SPAWN CROCODILE RED <LIANA> <ALTURA> (altura debe ser 0-12)");
+                String result = game.spawnCrocodileRed(new LianaId(tk.get(Integer.valueOf(5))), new Height(tk.get(Integer.valueOf(6))));
+                return result.equals("OK") ? "ACK ADMIN SPAWN CROCODILE RED" : err(Integer.valueOf(422), result);
             } else if (color.equals("BLUE")) {
                 // Azul desde admin: necesita LIANA para spawnearlo directo en liana
                 if (tk.size()!=Integer.valueOf(6)) return err(Integer.valueOf(400),"Usage: ADMIN <PID> SPAWN CROCODILE BLUE <LIANA>");
-                game.spawnCrocodileBlueOnLiana(new LianaId(tk.get(Integer.valueOf(5))));
-                return "ACK ADMIN SPAWN CROCODILE BLUE";
+                String result = game.spawnCrocodileBlueOnLiana(new LianaId(tk.get(Integer.valueOf(5))));
+                return result.equals("OK") ? "ACK ADMIN SPAWN CROCODILE BLUE" : err(Integer.valueOf(422), result);
             } else {
                 return err(Integer.valueOf(422),"CROCODILE color must be RED or BLUE");
             }
         } else if (kind.equals("FRUIT")) {
-            if (tk.size()!=Integer.valueOf(7)) return err(Integer.valueOf(400),"Usage: ADMIN <PID> SPAWN FRUIT <LIANA> <ALTURA> <PUNTOS>");
-            game.spawnFruit(new LianaId(tk.get(Integer.valueOf(4))), new Height(tk.get(Integer.valueOf(5))), new Points(tk.get(Integer.valueOf(6))));
-            return "ACK ADMIN SPAWN FRUIT";
+            if (tk.size()!=Integer.valueOf(7)) return err(Integer.valueOf(400),"Usage: ADMIN <PID> SPAWN FRUIT <LIANA> <ALTURA> <PUNTOS> (altura debe ser 0-12)");
+            String result = game.spawnFruit(new LianaId(tk.get(Integer.valueOf(4))), new Height(tk.get(Integer.valueOf(5))), new Points(tk.get(Integer.valueOf(6))));
+            return result.equals("OK") ? "ACK ADMIN SPAWN FRUIT" : err(Integer.valueOf(422), result);
         } else {
             return err(Integer.valueOf(422),"SPAWN kind must be CROCODILE or FRUIT");
         }

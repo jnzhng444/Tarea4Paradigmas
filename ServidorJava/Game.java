@@ -20,6 +20,8 @@ public final class Game {
 
     private Integer ticksSinceLastBlueSpawn = Integer.valueOf(0);
     private static final Integer BLUE_SPAWN_INTERVAL = Integer.valueOf(360); // aprox cada 18 segundos
+    
+    private String lastError = ""; // Para guardar mensajes de error detallados
 
     private final Level level;
     private final PhysicsEngine physics;
@@ -46,9 +48,16 @@ public final class Game {
     }
 
     // ===== API ADMIN =====
-    public void spawnCrocodileRed(final LianaId l, final Height h){
-        safeSpawnRed(l, h);
-        emitState();
+    public String spawnCrocodileRed(final LianaId l, final Height h){
+        lastError = ""; // Limpiar error anterior
+        Boolean ok = safeSpawnRed(l, h);
+        if (ok) {
+            emitState();
+            return "OK";
+        } else {
+            System.err.println("[GAME] Failed to spawn red crocodile: " + lastError);
+            return "ERR " + lastError;
+        }
     }
 
     // Spawner automático: sigue igual (camina desde izquierda)
@@ -60,19 +69,32 @@ public final class Game {
         emitState();
     }
 
-    // NUEVO: Para admin console - spawnearlo directo en liana en altura máxima
-    public void spawnCrocodileBlueOnLiana(final LianaId liana){
-        if (!level.hasLiana(liana)) return; // validación
-        // Siempre empieza en altura máxima (12) y bajando
-        var blue = factory.newBlueOnLiana(liana, new Height(GameRules.HEIGHT_MAX.toString()), speed);
+    // NUEVO: Para admin console - spawnearlo directo en liana desde el topY de esa liana
+    public String spawnCrocodileBlueOnLiana(final LianaId liana){
+        if (!level.hasLiana(liana)) {
+            System.err.println("[GAME] Cannot spawn blue: Liana " + liana.value() + " does not exist");
+            return "ERR liana no existe";
+        }
+        // Calcula la altura inicial basándose en el topY de la liana específica
+        Height initialHeight = level.getInitialHeightForLiana(liana);
+        var blue = factory.newBlueOnLiana(liana, initialHeight, speed);
         blues.add(blue);
         level.addCrocBlue(blue);
+        System.out.println("[GAME] Spawned blue on liana " + liana.value() + " at height " + initialHeight.value());
         emitState();
+        return "OK";
     }
 
-    public void spawnFruit(final LianaId l, final Height h, final Points p){
-        safeSpawnFruit(l, h, p);
-        emitState();
+    public String spawnFruit(final LianaId l, final Height h, final Points p){
+        lastError = ""; // Limpiar error anterior
+        Boolean ok = safeSpawnFruit(l, h, p);
+        if (ok) {
+            emitState();
+            return "OK";
+        } else {
+            System.err.println("[GAME] Failed to spawn fruit: " + lastError);
+            return "ERR " + lastError;
+        }
     }
 
     public void deleteFruit(final LianaId l, final Height h){
@@ -156,14 +178,23 @@ public final class Game {
                         String lStr = kv.get("l");
                         String hStr = kv.getOrDefault("h", "6");
                         if (lStr == null) return "ERR falta l";
-                        Boolean ok = safeSpawnRed(new LianaId(lStr), new Height(hStr));
+                        
+                        LianaId liana = new LianaId(lStr);
+                        Height height = new Height(hStr);
+                        
+                        if (!level.hasLiana(liana)) return "ERR liana no existe";
+                        if (!level.isHeightValidFormat(height)) return "ERR altura debe ser 0-12";
+                        
+                        Boolean ok = safeSpawnRed(liana, height);
                         emitState();
-                        return ok ? "OK red" : "ERR liana";
+                        return ok ? "OK red" : "ERR spawn failed";
                     }
                     case "blue" -> {
                         String lStr = kv.get("l");
                         if (lStr == null) return "ERR falta l";
-                        spawnCrocodileBlueOnLiana(new LianaId(lStr));
+                        LianaId liana = new LianaId(lStr);
+                        if (!level.hasLiana(liana)) return "ERR liana no existe";
+                        spawnCrocodileBlueOnLiana(liana);
                         return "OK blue";
                     }
                     case "fruit" -> {
@@ -171,9 +202,16 @@ public final class Game {
                         String hStr = kv.getOrDefault("h", "8");
                         String ptsStr = kv.getOrDefault("pts", "100");
                         if (lStr == null) return "ERR falta l";
-                        Boolean ok = safeSpawnFruit(new LianaId(lStr), new Height(hStr), new Points(ptsStr));
+                        
+                        LianaId liana = new LianaId(lStr);
+                        Height height = new Height(hStr);
+                        
+                        if (!level.hasLiana(liana)) return "ERR liana no existe";
+                        if (!level.isHeightValidFormat(height)) return "ERR altura debe ser 0-12";
+                        
+                        Boolean ok = safeSpawnFruit(liana, height, new Points(ptsStr));
                         emitState();
-                        return ok ? "OK fruit" : "ERR liana";
+                        return ok ? "OK fruit" : "ERR spawn failed";
                     }
                     default -> {
                         return "ERR tipo";
@@ -265,18 +303,53 @@ public final class Game {
 
     // ===== Helpers internos =====
     private Boolean safeSpawnRed(LianaId l, Height h) {
-        if (!level.hasLiana(l)) return Boolean.FALSE;
-        var red = factory.newRed(l, h, speed);
+        if (!level.hasLiana(l)) {
+            System.err.println("[GAME] Cannot spawn red: Liana " + l.value() + " does not exist");
+            lastError = "liana no existe";
+            return Boolean.FALSE;
+        }
+        
+        // Validar formato de altura (0-12)
+        if (!level.isHeightValidFormat(h)) {
+            System.err.println("[GAME] Cannot spawn red: Height must be 0-12, got " + h.value());
+            lastError = "altura debe ser 0-12";
+            return Boolean.FALSE;
+        }
+        
+        // Mapear altura lógica (0-12) al espacio real de esta liana
+        Height mappedHeight = level.mapHeightToLiana(l, h);
+        
+        // Obtener límites en el espacio real para el cocodrilo
+        Float minH = level.getMinHeightForLiana(l);
+        Float maxH = level.getMaxHeightForLiana(l);
+        var red = factory.newRed(l, mappedHeight, speed, minH, maxH);
         reds.add(red);
         level.addCrocRed(red);
+        System.out.println("[GAME] Spawned red on liana " + l.value() + " at logical height " + h.value() + "/12");
         return Boolean.TRUE;
     }
 
     private Boolean safeSpawnFruit(LianaId l, Height h, Points p) {
-        if (!level.hasLiana(l)) return Boolean.FALSE;
-        var fruit = factory.newFruit(l, h, p);
+        if (!level.hasLiana(l)) {
+            System.err.println("[GAME] Cannot spawn fruit: Liana " + l.value() + " does not exist");
+            lastError = "liana no existe";
+            return Boolean.FALSE;
+        }
+        
+        // Validar formato de altura (0-12)
+        if (!level.isHeightValidFormat(h)) {
+            System.err.println("[GAME] Cannot spawn fruit: Height must be 0-12, got " + h.value());
+            lastError = "altura debe ser 0-12";
+            return Boolean.FALSE;
+        }
+        
+        // Mapear altura lógica (0-12) al espacio real de esta liana
+        Height mappedHeight = level.mapHeightToLiana(l, h);
+        
+        var fruit = factory.newFruit(l, mappedHeight, p);
         fruits.add(fruit);
         level.addFruit(fruit);
+        System.out.println("[GAME] Spawned fruit on liana " + l.value() + " at logical height " + h.value() + "/12");
         return Boolean.TRUE;
     }
 }

@@ -84,7 +84,12 @@ static Rectangle player_hitbox(const PlayerState* p) {
 // ============ HELPERS DE MAPEOS ============
 static inline float liana_to_x(int l) { if (l < 1) l = 1; return 100.0f + 120.0f*(float)(l-1); }
 static inline float height_to_y(int h){ 
-    float result = 540.0f - 40.0f*(float)h;
+    // Mapea altura lógica (0-12) a píxeles del rango recortado (520-120)
+    // h=0 -> y=520 (abajo), h=12 -> y=120 (arriba)
+    float min_y = 120.0f;  // Top de la liana recortada
+    float max_y = 520.0f;  // Bottom de la liana recortada
+    float range = max_y - min_y;  // 400 píxeles
+    float result = max_y - (h / 12.0f) * range;
     printf("[height_to_y] h=%d -> y=%.1f\n", h, result);
     return result;
 }
