@@ -14,8 +14,8 @@
 // ============ DECLARACIONES (level.c) ============
 void level_init(Level* lvl);
 void level_draw(Level* lvl);
-void level_draw_debug(Level* lvl);     // overlay de debug (opcional en tu level.c)
-void level_set_debug(bool enabled);    // toggle debug para el nivel
+void level_draw_debug(Level* lvl);
+void level_set_debug(bool enabled);
 bool level_check_ground(Level* lvl, Vector2 pos, float width, float height);
 bool level_can_grab_liana(Level* lvl, Vector2 pos, int* outIndex);
 bool level_check_win(Level* lvl, Vector2 playerPos);
@@ -35,21 +35,20 @@ static bool g_connected = false;
 static bool g_hello_done = false;
 
 // ===== DEBUG / AJUSTES VISUALES =====
-static bool  g_debug_draw  = false;   // F1
-static float g_hb_scale_x  = 0.99f;   // F7/F8
-static float g_hb_scale_y  = 0.85f;   // F3/F4
-static float g_feet_offset = 0.0f;    // F5/F6
+static bool  g_debug_draw  = false;
+static float g_hb_scale_x  = 0.99f;
+static float g_hb_scale_y  = 0.85f;
+static float g_feet_offset = 0.0f;
 
 // ===== FEEDBACK / EFECTOS =====
 static double g_respawn_flash_until = 0.0;
 
-// Popup de puntos al comer frutas
 typedef struct {
     bool active;
     Vector2 pos;
     int points;
     double t0;
-    double duration; // ej. 0.6 s
+    double duration;
 } PointsPopup;
 
 #define POPUP_MAX 32
@@ -68,9 +67,8 @@ static void spawn_points_popup(Vector2 pos, int points) {
     }
 }
 
-// Spinlock simple para el snapshot
 static volatile bool g_world_lock = false;
-static void lock_world(void)   { while (g_world_lock) { /* spin */ } g_world_lock = true; }
+static void lock_world(void)   { while (g_world_lock) { } g_world_lock = true; }
 static void unlock_world(void) { g_world_lock = false; }
 
 // ============ HITBOX DEL JUGADOR ============
@@ -82,7 +80,11 @@ static Rectangle player_hitbox(const PlayerState* p) {
 
 // ============ HELPERS DE MAPEOS ============
 static inline float liana_to_x(int l) { if (l < 1) l = 1; return 100.0f + 120.0f*(float)(l-1); }
-static inline float height_to_y(int h){ return 540.0f - 40.0f*(float)h; }
+static inline float height_to_y(int h){ 
+    float result = 540.0f - 40.0f*(float)h;
+    printf("[height_to_y] h=%d -> y=%.1f\n", h, result);
+    return result;
+}
 
 // ============ PARSING HELPERS ============
 static float parse_float_loose(const char* s) {
@@ -94,7 +96,6 @@ static int parse_int_loose(const char* s) {
     return atoi(s);
 }
 
-// Para detectar fruta-comida: guardamos snapshot previo (posiciones & collected)
 typedef struct {
     Vector2 pos;
     int points;
@@ -103,20 +104,11 @@ typedef struct {
 } FruitPrev;
 
 static void detect_fruit_events(FruitPrev* prev, int prevCount) {
-    // Estrategia:
-    // 1) Si ahora hay una fruta con collected=true y antes no lo estaba -> popup en su pos
-    // 2) Si una fruta desaparece (no está en nueva lista) -> asumimos recogida -> popup
-    // Matching: por posición (x,y) con tolerancia de 2 píxeles.
     const float TOL = 2.0f;
-
-    // Marca prev como "no visto todavía"
     bool seenPrev[32] = {0};
 
-    // 1) Revisar frutas actuales
     for (int i = 0; i < g_world.fruitCount; i++) {
         Fruit cur = g_world.fruits[i];
-
-        // Busca match en prev por posición
         int matched = -1;
         for (int j = 0; j < prevCount; j++) {
             if (!prev[j].valid) continue;
@@ -125,21 +117,17 @@ static void detect_fruit_events(FruitPrev* prev, int prevCount) {
                 matched = j; break;
             }
         }
-
         if (matched >= 0) {
             seenPrev[matched] = true;
-            // transición a collected:
             if (!prev[matched].collected && cur.collected) {
                 spawn_points_popup(cur.pos, cur.points);
             }
         }
     }
 
-    // 2) Cualquier fruta previa válida que ya no exista ahora => asumimos recogida
     for (int j = 0; j < prevCount; j++) {
         if (!prev[j].valid) continue;
         if (!seenPrev[j]) {
-            // Desapareció; si antes no estaba marcada como collected, tratamos como recogida
             if (!prev[j].collected) {
                 spawn_points_popup(prev[j].pos, prev[j].points);
             }
@@ -184,7 +172,7 @@ static void parse_players_block(const char* start, const char* end) {
             if (respawn_ptr) {
                 p->respawned = (parse_float_loose(respawn_ptr+10) > 0.5f);
                 if (p->respawned) {
-                    g_respawn_flash_until = GetTime() + 0.35; // 350ms de flash
+                    g_respawn_flash_until = GetTime() + 0.35;
                 }
             }
 
@@ -222,18 +210,63 @@ static void parse_blues_block(const char* start, const char* end) {
     if (len >= sizeof(buf)) len = sizeof(buf)-1;
     memcpy(buf, start, len); buf[len] = '\0';
 
+    printf("[CLIENT PARSE BLUES] Raw data: [%s]\n", buf);
+
     g_world.blueCount = 0;
     char* saveptr = NULL;
     char* item = strtok_r(buf, "|", &saveptr);
+    
     while (item && g_world.blueCount < MAX_BLUES) {
-        int l = 0, h = 0; (void)sscanf(item, " l=%d , h=%d ", &l, &h);
         BlueCroc* b = &g_world.blues[g_world.blueCount];
-        b->pos.x = liana_to_x(l); b->pos.y = height_to_y(h);
-        b->lianaIndex = (l>0) ? (l-1) : 0;
-        b->speed = 60.0f; b->active = true;
+        
+        printf("[CLIENT] Parsing blue item: [%s]\n", item);
+        
+        const char* state_ptr = strstr(item, "state=");
+        
+        if (state_ptr && strncmp(state_ptr + 6, "walking", 7) == 0) {
+            const char* x_ptr = strstr(item, "x=");
+            const char* h_ptr = strstr(item, "h=");
+            
+            float x_val = 0.0f;
+            int h_val = 12;
+            
+            if (x_ptr) {
+                x_val = parse_float_loose(x_ptr + 2);
+                b->pos.x = x_val;
+            }
+            if (h_ptr) {
+                h_val = parse_int_loose(h_ptr + 2);
+                b->pos.y = height_to_y(h_val);
+            }
+            
+            printf("[CLIENT] Blue WALKING: x=%.1f (parsed %.1f), h=%d -> y=%.1f\n", 
+                   b->pos.x, x_val, h_val, b->pos.y);
+            
+        } else {
+            int l = 0, h = 0;
+            
+            const char* l_ptr = strstr(item, "l=");
+            const char* h_ptr = strstr(item, "h=");
+            
+            if (l_ptr) l = parse_int_loose(l_ptr + 2);
+            if (h_ptr) h = parse_int_loose(h_ptr + 2);
+            
+            b->pos.x = liana_to_x(l);
+            b->pos.y = height_to_y(h);
+            b->lianaIndex = (l > 0) ? (l - 1) : 0;
+            
+            printf("[CLIENT] Blue DESCENDING: l=%d h=%d -> x=%.1f y=%.1f\n", 
+                   l, h, b->pos.x, b->pos.y);
+        }
+        
+        b->speed = 60.0f;
+        b->active = true;
         g_world.blueCount++;
+        
         item = strtok_r(NULL, "|", &saveptr);
     }
+    
+    printf("[CLIENT] Total blues parsed: %d\n", g_world.blueCount);
 }
 
 static void parse_fruits_block(const char* start, const char* end, FruitPrev* prev, int prevCount) {
@@ -248,11 +281,6 @@ static void parse_fruits_block(const char* start, const char* end, FruitPrev* pr
     while (item && g_world.fruitCount < MAX_FRUITS) {
         int l=0,h=0,pts=0;
         int col = 0;
-        // Permite "col=1" opcional
-        // Formatos soportados:
-        //  " l=%d , h=%d , pts=%d "
-        //  " l=%d , h=%d , pts=%d , col=%d "
-        //  espacios flexibles
         const char* col_ptr = strstr(item, "col=");
         if (col_ptr) col = parse_int_loose(col_ptr+4);
 
@@ -268,14 +296,12 @@ static void parse_fruits_block(const char* start, const char* end, FruitPrev* pr
         item = strtok_r(NULL, "|", &saveptr);
     }
 
-    // una vez cargadas las frutas actuales, detecta eventos comparando contra prev
     detect_fruit_events(prev, prevCount);
 }
 
 static void parse_state_line(const char* line) {
     lock_world();
 
-    // Snapshot previo de frutas para detectar transiciones
     FruitPrev prev[32] = {0};
     int prevCount = g_world.fruitCount;
     if (prevCount > 32) prevCount = 32;
@@ -288,8 +314,6 @@ static void parse_state_line(const char* line) {
 
     g_world.playerCount = 0;
     g_world.redCount    = 0;
-    g_world.blueCount   = 0;
-    // g_world.fruitCount se setea en parse_fruits_block
 
     const char* pStart = strstr(line, "players=[");
     if (pStart && g_local_id[0]) {
@@ -309,7 +333,16 @@ static void parse_state_line(const char* line) {
     if (bStart) {
         bStart += 7;
         const char* bEnd = strchr(bStart, ']');
-        if (bEnd) parse_blues_block(bStart, bEnd);
+        if (bEnd) {
+            char debug[512];
+            size_t len = (size_t)(bEnd - bStart);
+            if (len < sizeof(debug)) {
+                memcpy(debug, bStart, len);
+                debug[len] = '\0';
+                printf("[DEBUG] Full blues string from server: [%s]\n", debug);
+            }
+            parse_blues_block(bStart, bEnd);
+        }
     }
 
     const char* fStart = strstr(line, "fruits=[");
@@ -317,10 +350,6 @@ static void parse_state_line(const char* line) {
         fStart += 8;
         const char* fEnd = strchr(fStart, ']');
         if (fEnd) parse_fruits_block(fStart, fEnd, prev, prevCount);
-    } else {
-        // Si el servidor no envía bloque fruits en este tick,
-        // igual podemos detectar desapariciones (todas desaparecieron):
-        // pero mejor no asumimos nada para evitar falsos positivos.
     }
 
     unlock_world();
@@ -355,35 +384,30 @@ typedef enum { INPUT_LEFT=0, INPUT_RIGHT, INPUT_UP, INPUT_DOWN, INPUT_JUMP } Inp
 
 static void process_input(void) {
     double dt = GetFrameTime();
-    // LEFT
     if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A)) {
         g_key_hold_time[INPUT_LEFT] += dt;
         if (g_key_hold_time[INPUT_LEFT] < INITIAL_DELAY) {
             if (g_key_hold_time[INPUT_LEFT] <= dt) net_send("MOVE LEFT\n");
         } else { g_repeat_timers[INPUT_LEFT] += dt; if (g_repeat_timers[INPUT_LEFT] >= REPEAT_RATE) { net_send("MOVE LEFT\n"); g_repeat_timers[INPUT_LEFT]=0; } }
     } else { g_key_hold_time[INPUT_LEFT]=0; g_repeat_timers[INPUT_LEFT]=0; }
-    // RIGHT
     if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D)) {
         g_key_hold_time[INPUT_RIGHT] += dt;
         if (g_key_hold_time[INPUT_RIGHT] < INITIAL_DELAY) {
             if (g_key_hold_time[INPUT_RIGHT] <= dt) net_send("MOVE RIGHT\n");
         } else { g_repeat_timers[INPUT_RIGHT] += dt; if (g_repeat_timers[INPUT_RIGHT] >= REPEAT_RATE) { net_send("MOVE RIGHT\n"); g_repeat_timers[INPUT_RIGHT]=0; } }
     } else { g_key_hold_time[INPUT_RIGHT]=0; g_repeat_timers[INPUT_RIGHT]=0; }
-    // UP
     if (IsKeyDown(KEY_UP) || IsKeyDown(KEY_W)) {
         g_key_hold_time[INPUT_UP] += dt;
         if (g_key_hold_time[INPUT_UP] < INITIAL_DELAY) {
             if (g_key_hold_time[INPUT_UP] <= dt) net_send("MOVE UP\n");
         } else { g_repeat_timers[INPUT_UP] += dt; if (g_repeat_timers[INPUT_UP] >= REPEAT_RATE) { net_send("MOVE UP\n"); g_repeat_timers[INPUT_UP]=0; } }
     } else { g_key_hold_time[INPUT_UP]=0; g_repeat_timers[INPUT_UP]=0; }
-    // DOWN
     if (IsKeyDown(KEY_DOWN) || IsKeyDown(KEY_S)) {
         g_key_hold_time[INPUT_DOWN] += dt;
         if (g_key_hold_time[INPUT_DOWN] < INITIAL_DELAY) {
             if (g_key_hold_time[INPUT_DOWN] <= dt) net_send("MOVE DOWN\n");
         } else { g_repeat_timers[INPUT_DOWN] += dt; if (g_repeat_timers[INPUT_DOWN] >= REPEAT_RATE) { net_send("MOVE DOWN\n"); g_repeat_timers[INPUT_DOWN]=0; } }
     } else { g_key_hold_time[INPUT_DOWN]=0; g_repeat_timers[INPUT_DOWN]=0; }
-    // JUMP
     if (IsKeyPressed(KEY_SPACE)) net_send("MOVE JUMP\n");
 }
 
@@ -395,7 +419,6 @@ static bool load_texture_cropped(Texture2D* out, const char* path, const char* l
     Image img = LoadImage(path);
     if (!img.data) { TraceLog(LOG_WARNING, "LoadImage failed: %s", path); return false; }
 
-    // Recorta borde con alpha ~0 (umbral ≈ 1/255 -> usar 0.01 como margen)
     ImageAlphaCrop(&img, 0.01f);
 
     *out = LoadTextureFromImage(img);
@@ -408,7 +431,6 @@ static bool load_texture_cropped(Texture2D* out, const char* path, const char* l
 static void load_sprites(void) {
     bool ok;
 
-    // --- Jugador ---
     const char* player_paths[] = { "assets/jr_b.png", "output/assets/jr_b.png", "../output/assets/jr_b.png" };
     ok = false; for (int i=0;i<(int)(sizeof(player_paths)/sizeof(player_paths[0]));++i)
         if (load_texture_cropped(&g_player_sprite, player_paths[i], "Jugador")) { ok=true; break; }
@@ -416,7 +438,6 @@ static void load_sprites(void) {
                g_player_sprite = LoadTextureFromImage(img); UnloadImage(img);
                TraceLog(LOG_WARNING, "Sprite de jugador no encontrado, usando procedural"); }
 
-    // --- Cocodrilo rojo ---
     const char* red_paths[] = { "assets/kremling_red_d.png", "output/assets/kremling_red_d.png", "../output/assets/kremling_red_d.png" };
     ok = false; for (int i=0;i<(int)(sizeof(red_paths)/sizeof(red_paths[0]));++i)
         if (load_texture_cropped(&g_red_croc_sprite, red_paths[i], "Cocodrilo rojo")) { ok=true; break; }
@@ -424,7 +445,6 @@ static void load_sprites(void) {
                g_red_croc_sprite = LoadTextureFromImage(img); UnloadImage(img);
                TraceLog(LOG_WARNING, "Sprite de cocodrilo rojo no encontrado, usando procedural"); }
 
-    // --- Cocodrilo azul ---
     const char* blue_paths[] = { "assets/kremling_blue_d.png", "output/assets/kremling_blue_d.png", "../output/assets/kremling_blue_d.png" };
     ok = false; for (int i=0;i<(int)(sizeof(blue_paths)/sizeof(blue_paths[0]));++i)
         if (load_texture_cropped(&g_blue_croc_sprite, blue_paths[i], "Cocodrilo azul")) { ok=true; break; }
@@ -432,7 +452,6 @@ static void load_sprites(void) {
                g_blue_croc_sprite = LoadTextureFromImage(img); UnloadImage(img);
                TraceLog(LOG_WARNING, "Sprite de cocodrilo azul no encontrado, usando procedural"); }
 
-    // --- Fruta ---
     const char* fruit_paths[] = { "assets/fruit_bananas.png", "output/assets/fruit_bananas.png", "../output/assets/fruit_bananas.png" };
     ok = false; for (int i=0;i<(int)(sizeof(fruit_paths)/sizeof(fruit_paths[0]));++i)
         if (load_texture_cropped(&g_fruit_sprite, fruit_paths[i], "Fruta")) { ok=true; break; }
@@ -441,7 +460,6 @@ static void load_sprites(void) {
                g_fruit_sprite = LoadTextureFromImage(img); UnloadImage(img);
                TraceLog(LOG_WARNING, "Sprite de fruta no encontrado, usando procedural"); }
 
-    // --- Donkey Kong ---
     const char* dk_paths[] = { "assets/dk.png", "output/assets/dk.png", "../output/assets/dk.png" };
     ok = false; for (int i=0;i<(int)(sizeof(dk_paths)/sizeof(dk_paths[0]));++i)
         if (load_texture_cropped(&g_dk_sprite, dk_paths[i], "Donkey Kong")) { ok=true; break; }
@@ -460,34 +478,12 @@ static void unload_sprites(void) {
     if (g_dk_sprite.id) UnloadTexture(g_dk_sprite);
 }
 
-// ====== SNAP VISUAL A PLATAFORMA (solo para render) ======
-static bool find_floor_y_under(Level* lvl, Rectangle hb, float* outPlatY) {
-    float pxLeft  = hb.x;
-    float pxRight = hb.x + hb.width;
-    float feetY   = hb.y + hb.height;
-
-    float bestY = 1e9f;
-    bool found = false;
-
-    for (int i = 0; i < lvl->platformCount; i++) {
-        Rectangle plat = lvl->platforms[i].rect;
-        if (pxRight > plat.x && pxLeft < plat.x + plat.width) {
-            if (plat.y >= feetY && plat.y < bestY) {
-                bestY = plat.y; found = true;
-            }
-        }
-    }
-    if (found && outPlatY) *outPlatY = bestY;
-    return found;
-}
-
-// ============ RENDER ============
+// ====== RENDER ======
 static void draw_player(PlayerState* p) {
     Rectangle hb = player_hitbox(p);
 
     float baseDrawX = hb.x + hb.width  * 0.5f - g_player_sprite.width  * 0.5f;
     float baseDrawY = hb.y + hb.height - g_player_sprite.height + g_feet_offset;
-
 
     Rectangle src = {0, 0, (float)g_player_sprite.width, (float)g_player_sprite.height};
     if (!p->facingRight) src.width = -src.width;
@@ -495,7 +491,6 @@ static void draw_player(PlayerState* p) {
     Rectangle dst = {baseDrawX, baseDrawY, (float)g_player_sprite.width, (float)g_player_sprite.height};
     DrawTexturePro(g_player_sprite, src, dst, (Vector2){0,0}, 0.0f, WHITE);
 
-    // Flash rojo si fuiste golpeado recientemente
     if (GetTime() < g_respawn_flash_until) {
         DrawCircleV(p->pos, 28.0f, (Color){255, 0, 0, 110});
     }
@@ -515,8 +510,8 @@ static void draw_popups(void) {
         if (t >= g_popups[i].duration) { g_popups[i].active = false; continue; }
 
         float k = (float)(t / g_popups[i].duration);
-        float yOffset = -30.0f * k;                 // sube
-        unsigned char alpha = (unsigned char)(255 * (1.0f - k)); // se desvanece
+        float yOffset = -30.0f * k;
+        unsigned char alpha = (unsigned char)(255 * (1.0f - k));
 
         char txt[32];
         snprintf(txt, sizeof(txt), "+%d", g_popups[i].points);
@@ -536,7 +531,6 @@ static void draw_hud(void) {
         char hud[128]; snprintf(hud, sizeof(hud), "ID: %.20s", g_local_id); DrawText(hud, 10, 30, 16, LIME);
     }
 
-    // Puntaje
     if (g_world.playerCount > 0) {
         PlayerState *p = &g_world.players[0];
         char hud2[128]; snprintf(hud2, sizeof(hud2), "Puntos: %d", p->score);
@@ -565,7 +559,6 @@ static void draw_world(void) {
     level_draw(&g_level);
     if (g_debug_draw) level_draw_debug(&g_level);
 
-
     for (int i=0;i<w.fruitCount;i++) if (!w.fruits[i].collected) {
         float x = w.fruits[i].pos.x - g_fruit_sprite.width  / 2;
         float y = w.fruits[i].pos.y - g_fruit_sprite.height / 2;
@@ -575,6 +568,12 @@ static void draw_world(void) {
         float x = w.blues[i].pos.x - g_blue_croc_sprite.width  / 2;
         float y = w.blues[i].pos.y - g_blue_croc_sprite.height / 2;
         DrawTextureV(g_blue_croc_sprite, (Vector2){x,y}, WHITE);
+        
+        if (g_debug_draw) {
+            DrawCircleLines((int)w.blues[i].pos.x, (int)w.blues[i].pos.y, 3, SKYBLUE);
+            DrawText(TextFormat("%.0f,%.0f", w.blues[i].pos.x, w.blues[i].pos.y), 
+                     (int)w.blues[i].pos.x + 10, (int)w.blues[i].pos.y, 12, SKYBLUE);
+        }
     }
     for (int i=0;i<w.redCount;i++) {
         float x = w.reds[i].pos.x - g_red_croc_sprite.width  / 2;
@@ -583,16 +582,13 @@ static void draw_world(void) {
     }
     for (int i=0;i<w.playerCount;i++) draw_player(&w.players[i]);
 
-    // Popups
     draw_popups();
-
     draw_hud();
     draw_debug_hud();
 }
 
 // ============ MAIN ============
 int main(void) {
-    // Red
     if (net_startup() != 0) { printf("Error: net_startup\n"); return 1; }
     if (net_connect(DKJ_SERVER_HOST, DKJ_SERVER_PORT) != 0) {
         printf("Error: No se pudo conectar a %s:%d\n", DKJ_SERVER_HOST, DKJ_SERVER_PORT);
@@ -602,12 +598,10 @@ int main(void) {
     net_start_receiver(cb);
     net_send(DKJ_MSG_HELLO_PLAYER);
 
-    // Raylib
     SetConfigFlags(FLAG_VSYNC_HINT);
     InitWindow(800, 600, "Donkey Kong Jr - Raylib");
     SetTargetFPS(60);
 
-    // Logs + CWD = carpeta del ejecutable (robusto)
     SetTraceLogLevel(LOG_INFO);
     const char* appDir = GetApplicationDirectory();
     ChangeDirectory(appDir);
@@ -619,7 +613,6 @@ int main(void) {
     bool won = false;
 
     while (!WindowShouldClose()) {
-        // Debug toggles
         if (IsKeyPressed(KEY_F1)) { g_debug_draw = !g_debug_draw; if (level_set_debug) level_set_debug(g_debug_draw); }
         if (g_debug_draw) {
             float step = (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT)) ? 0.05f : 0.02f;

@@ -14,12 +14,14 @@ public final class Game {
     private final List<CrocodileBlue> blues  = new CopyOnWriteArrayList<>();
     private final List<Fruit>         fruits = new CopyOnWriteArrayList<>();
 
-    // (legacy lógico, se mantiene si en otra parte lo usan)
     private final Map<PlayerId, Player> players = new HashMap<>();
 
-    private Speed speed = new Speed("1");
+    private Speed speed = new Speed("0.1");
 
-    // ===== Mundo y física separados =====
+    // ⭐ Spawner de cocodrilos azules
+    private Integer ticksSinceLastBlueSpawn = Integer.valueOf(0);
+    private static final Integer BLUE_SPAWN_INTERVAL = Integer.valueOf(120); // cada 120 ticks (~6 segundos)
+
     private final Level level;
     private final PhysicsEngine physics;
 
@@ -30,17 +32,31 @@ public final class Game {
         this.level   = new Level();
         this.physics = new PhysicsEngine(level);
 
+        // Spawneo inicial solo de rojos y frutas
+        spawnInitialEntities();
+        
         emitState();
     }
 
-    // ===== API ADMIN (pública, compatible con código previo) =====
+    private void spawnInitialEntities() {
+        // Spawn 1 cocodrilo rojo en liana 3, altura 6
+        safeSpawnRed(new LianaId("3"), new Height("6"));
+        
+        // Spawn 1 fruta en liana 2, altura 8, con 100 puntos
+        safeSpawnFruit(new LianaId("2"), new Height("8"), new Points("100"));
+    }
+
+    // ===== API ADMIN =====
     public void spawnCrocodileRed(final LianaId l, final Height h){
         safeSpawnRed(l, h);
         emitState();
     }
 
-    public void spawnCrocodileBlue(final LianaId l){
-        safeSpawnBlue(l);
+    public void spawnCrocodileBlue(final Height platformHeight){
+        // Crea un azul que empieza caminando en la plataforma
+        var blue = factory.newBlue(platformHeight, speed);
+        blues.add(blue);
+        level.addCrocBlue(blue);
         emitState();
     }
 
@@ -58,8 +74,6 @@ public final class Game {
     // ===== PLAYERS =====
     public void addPlayer(final PlayerId id){
         physics.addPlayer(id);
-
-        // Player con posición lógica (legacy)
         players.put(id, new Player(id, new Position(new LianaId("1"), new Height("0"))));
         emitState();
     }
@@ -70,36 +84,48 @@ public final class Game {
         emitState();
     }
 
-    // ===== MOVIMIENTOS =====
     public void enqueueMove(final PlayerId id, final Direction dir){
         physics.enqueueMove(id, dir);
     }
 
-    // ===== LOOP (cada ~50ms para 60 FPS simulado) =====
     public void step(){
-        Float dt = 0.05f; // 50ms
+        Float dt = 0.05f;
 
         physics.update(dt);
 
-        // Mover entidades
-        for (var r : reds)  r.step();
-        for (var b : blues) b.step();
+        // Actualizar cocodrilos rojos
+        System.out.println("[GAME STEP] Updating " + reds.size() + " red crocodiles");
+        for (var r : reds) {
+            r.step();
+        }
 
-        // ⭐ LIMPIAR frutas colectadas (borrar completamente)
+        // Actualizar cocodrilos azules
+        System.out.println("[GAME STEP] Updating " + blues.size() + " blue crocodiles");
+        List<CrocodileBlue> bluesToRemove = new ArrayList<>();
+        for (var b : blues) {
+            CrocodileBlue updated = b.step(level);
+            if (updated == null) {
+                bluesToRemove.add(b);
+            }
+        }
+        blues.removeAll(bluesToRemove);
+        level.crocodileBlues().removeAll(bluesToRemove);
+
+        // SPAWNER de azules
+        ticksSinceLastBlueSpawn = ticksSinceLastBlueSpawn + 1;
+        if (ticksSinceLastBlueSpawn >= BLUE_SPAWN_INTERVAL) {
+            System.out.println("[GAME] Spawning new blue crocodile");
+            spawnCrocodileBlue(new Height("12"));
+            ticksSinceLastBlueSpawn = Integer.valueOf(0);
+        }
+
+        // Limpiar frutas
         fruits.removeIf(f -> f.isCollected());
         level.fruits().removeIf(f -> f.isCollected());
 
         emitState();
     }
-
-    // ===== ADMIN CONSOLE (opcional) =====
-    /**
-     * Comandos soportados:
-     *   spawn red l=3 h=5
-     *   spawn blue l=2
-     *   spawn fruit l=4 h=6 pts=200
-     *   delete fruit l=4 h=6
-     */
+    // ===== ADMIN CONSOLE =====
     public String runAdminCommand(String line) {
         try {
             String[] toks = line.trim().split("\\s+");
@@ -116,26 +142,26 @@ public final class Game {
                     if (kvp.length == Integer.valueOf(2)) kv.put(kvp[Integer.valueOf(0)].toLowerCase(Locale.ROOT), kvp[Integer.valueOf(1)]);
                 }
 
-                String lStr = kv.get("l");
-                if (lStr == null) return "ERR falta l";
-                LianaId lianaId = new LianaId(lStr);
-
                 switch (what) {
                     case "red" -> {
-                        String hStr = kv.getOrDefault("h", "0");
-                        Boolean ok = safeSpawnRed(lianaId, new Height(hStr));
+                        String lStr = kv.get("l");
+                        String hStr = kv.getOrDefault("h", "6");
+                        if (lStr == null) return "ERR falta l";
+                        Boolean ok = safeSpawnRed(new LianaId(lStr), new Height(hStr));
                         emitState();
                         return ok ? "OK red" : "ERR liana";
                     }
                     case "blue" -> {
-                        Boolean ok = safeSpawnBlue(lianaId);
-                        emitState();
-                        return ok ? "OK blue" : "ERR liana";
+                        String hStr = kv.getOrDefault("h", "12");
+                        spawnCrocodileBlue(new Height(hStr));
+                        return "OK blue";
                     }
                     case "fruit" -> {
-                        String hStr   = kv.getOrDefault("h", "0");
+                        String lStr = kv.get("l");
+                        String hStr = kv.getOrDefault("h", "8");
                         String ptsStr = kv.getOrDefault("pts", "100");
-                        Boolean ok = safeSpawnFruit(lianaId, new Height(hStr), new Points(ptsStr));
+                        if (lStr == null) return "ERR falta l";
+                        Boolean ok = safeSpawnFruit(new LianaId(lStr), new Height(hStr), new Points(ptsStr));
                         emitState();
                         return ok ? "OK fruit" : "ERR liana";
                     }
@@ -182,10 +208,10 @@ public final class Game {
 
             if (playersTxt.length() > Integer.valueOf(0)) playersTxt.append("|");
             playersTxt.append("id=").append(id.value())
-                      .append(",x=").append(String.format("%.1f", phys.x))
-                      .append(",y=").append(String.format("%.1f", phys.y))
-                      .append(",onLiana=").append(phys.onLiana ? "1" : "0")
-                      .append(",score=").append(phys.score);
+                    .append(",x=").append(String.format("%.1f", phys.x))
+                    .append(",y=").append(String.format("%.1f", phys.y))
+                    .append(",onLiana=").append(phys.onLiana ? "1" : "0")
+                    .append(",score=").append(phys.score);
         }
 
         var redsTxt = new StringBuilder();
@@ -193,15 +219,28 @@ public final class Game {
             var p = r.position();
             if (redsTxt.length() > Integer.valueOf(0)) redsTxt.append("|");
             redsTxt.append("l=").append(p.liana().value())
-                   .append(",h=").append(p.height().value());
+                .append(",h=").append(p.height().value());
         }
 
         var bluesTxt = new StringBuilder();
         for (var b : blues) {
             var p = b.position();
             if (bluesTxt.length() > Integer.valueOf(0)) bluesTxt.append("|");
-            bluesTxt.append("l=").append(p.liana().value())
-                   .append(",h=").append(p.height().value());
+            
+            if (b.getState() == CrocodileBlue.CrocodileBlueState.WALKING_ON_PLATFORM) {
+                bluesTxt.append("state=walking")
+                    .append(",x=").append(String.format("%.1f", b.getPlatformX()))
+                    .append(",h=").append(p.height().value());
+                
+                // Log para debug
+                if (Math.random() < 0.05) {
+                    System.out.println("[SNAPSHOT BLUE WALKING] x=" + String.format("%.1f", b.getPlatformX()));
+                }
+            } else {
+                bluesTxt.append("state=descending")
+                    .append(",l=").append(p.liana().value())
+                    .append(",h=").append(p.height().value());
+            }
         }
 
         var fruitsTxt = new StringBuilder();
@@ -209,29 +248,21 @@ public final class Game {
             var p = f.position();
             if (fruitsTxt.length() > Integer.valueOf(0)) fruitsTxt.append("|");
             fruitsTxt.append("l=").append(p.liana().value())
-                     .append(",h=").append(p.height().value())
-                     .append(",pts=").append(f.points().value())
-                     .append(",col=0");
+                    .append(",h=").append(p.height().value())
+                    .append(",pts=").append(f.points().value())
+                    .append(",col=").append(f.isCollected() ? "1" : "0");
         }
 
         return "STATE players=[" + playersTxt + "] reds=[" + redsTxt +
-               "] blues=[" + bluesTxt + "] fruits=[" + fruitsTxt + "]";
+            "] blues=[" + bluesTxt + "] fruits=[" + fruitsTxt + "]";
     }
 
-    // ===== Helpers internos (validan liana antes de spawnear) =====
+    // ===== Helpers internos =====
     private Boolean safeSpawnRed(LianaId l, Height h) {
         if (!level.hasLiana(l)) return Boolean.FALSE;
         var red = factory.newRed(l, h, speed);
         reds.add(red);
         level.addCrocRed(red);
-        return Boolean.TRUE;
-    }
-
-    private Boolean safeSpawnBlue(LianaId l) {
-        if (!level.hasLiana(l)) return Boolean.FALSE;
-        var blue = factory.newBlue(l, speed);
-        blues.add(blue);
-        level.addCrocBlue(blue);
         return Boolean.TRUE;
     }
 

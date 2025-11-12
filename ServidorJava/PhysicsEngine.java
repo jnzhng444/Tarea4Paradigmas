@@ -263,8 +263,14 @@ final class PhysicsEngine {
             }
 
             // Azules
+                // En la sección de colisiones con azules
             for (CrocodileBlue bc : level.crocodileBlues()) {
                 try {
+                    // VALIDACION: Si el azul está en liana "0", está caminando, no bajando
+                    if (bc.position().liana().value().equals("0")) {
+                        continue; // Saltar este azul, está caminando en plataforma
+                    }
+                    
                     Float cx = level.xOf(bc.position().liana());
                     Integer logicalH = Integer.parseInt(bc.position().height().value());
                     Float cy = heightToPixels(logicalH);
@@ -276,10 +282,10 @@ final class PhysicsEngine {
                         break;
                     }
                 } catch (Exception e) {
-                    System.err.println("[ERROR BLUE] " + e.getMessage());
-                    e.printStackTrace();
+                    System.err.println("[ERROR BLUE ON LIANA] " + e.getMessage());
                 }
             }
+
 
             // Frutas
             for (Fruit f : level.fruits()) {
