@@ -1,16 +1,6 @@
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 
-/**
- * Consola de administración del servidor.
- * Lee líneas de System.in y las despacha al CommandDispatcherWithGame,
- * usando un ClientContext que escribe en System.out.
- *
- * Nuevos comandos:
- *   LIST  -> muestra todos los jugadores activos y sus partidas
- *   help  -> imprime ayuda
- *   quit  -> sale de la consola (no tumba el server)
- */
 public final class AdminConsole implements Runnable {
     private final CommandDispatcherWithGame dispatcher;
     private final SessionRegistry sessions;
@@ -76,6 +66,7 @@ public final class AdminConsole implements Runnable {
 
             Notas:
               • Usa el <PLAYER_ID> que aparece en el cliente GUI (You: <uuid>).
+              • Azules desde admin aparecen directo en la liana especificada.
               • 'quit' cierra la consola pero deja el servidor corriendo.
             """);
     }
@@ -87,15 +78,14 @@ public final class AdminConsole implements Runnable {
             return;
         }
         System.out.println("Jugadores activos:");
-        Integer i = 1;
+        Integer i = Integer.valueOf(1);
         for (ClientContext s : list) {
             if (s.role() == Role.PLAYER && s.playerId() != null) {
                 System.out.printf("  %d) %s%n", i++, s.playerId().value());
             }
         }
-        if (i.equals(1)) {
+        if (i.equals(Integer.valueOf(1))) {
             System.out.println("  (sin jugadores PLAYER con id)");
         }
     }
-
 }

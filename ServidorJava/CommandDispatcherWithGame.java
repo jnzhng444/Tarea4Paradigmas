@@ -131,9 +131,9 @@ public final class CommandDispatcherWithGame {
                 game.spawnCrocodileRed(new LianaId(tk.get(Integer.valueOf(5))), new Height(tk.get(Integer.valueOf(6))));
                 return "ACK ADMIN SPAWN CROCODILE RED";
             } else if (color.equals("BLUE")) {
-                // Azul solo necesita altura de plataforma
-                if (tk.size()!=Integer.valueOf(6)) return err(Integer.valueOf(400),"Usage: ADMIN <PID> SPAWN CROCODILE BLUE <ALTURA>");
-                game.spawnCrocodileBlue(new Height(tk.get(Integer.valueOf(5))));
+                // Azul desde admin: necesita LIANA para spawnearlo directo en liana
+                if (tk.size()!=Integer.valueOf(6)) return err(Integer.valueOf(400),"Usage: ADMIN <PID> SPAWN CROCODILE BLUE <LIANA>");
+                game.spawnCrocodileBlueOnLiana(new LianaId(tk.get(Integer.valueOf(5))));
                 return "ACK ADMIN SPAWN CROCODILE BLUE";
             } else {
                 return err(Integer.valueOf(422),"CROCODILE color must be RED or BLUE");

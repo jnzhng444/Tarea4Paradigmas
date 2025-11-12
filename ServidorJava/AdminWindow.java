@@ -6,16 +6,6 @@ import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
-/**
- * Ventana GUI para enviar comandos al servidor (admin).
- * - Caja de texto para escribir comandos y botón Enviar.
- * - Área de salida estilo consola.
- * - Lista "Players" con botón Refrescar (toma ids de SessionRegistry).
- * - Doble clic sobre un player inserta "ADMIN <id> " en la entrada.
- *
- * Nota: Esto es UI (capa de infraestructura), no toca el dominio,
- * por lo que el requisito "sin tipos simples" se mantiene para la API pública del server.
- */
 public final class AdminWindow extends JFrame {
     private final CommandDispatcherWithGame dispatcher;
     private final SessionRegistry sessions;
@@ -151,6 +141,7 @@ public final class AdminWindow extends JFrame {
         printLine("  ADMIN <PLAYER_ID> DELETE FRUIT <LIANA> <ALTURA>");
         printLine("Tips:");
         printLine("  • Usa 'Refrescar' y doble clic para insertar <PLAYER_ID>.");
+        printLine("  • Azules desde admin aparecen directo en la liana en altura máxima");
         printLine("");
     }
 
@@ -176,8 +167,6 @@ public final class AdminWindow extends JFrame {
         private final JTextArea target;
         public TextAreaOutputStream(JTextArea target) { this.target = target; }
         
-        // IMPORTANTE: Estos métodos deben mantener los tipos primitivos porque están 
-        // sobrescribiendo métodos de OutputStream (clase del JDK)
         @Override 
         public void write(int b) {
             append(new String(new byte[]{(byte)b}, StandardCharsets.UTF_8));
@@ -201,7 +190,6 @@ public final class AdminWindow extends JFrame {
         }
     }
 
-    /** Muestra la ventana (EDT). */
     public void showWindow() {
         SwingUtilities.invokeLater(() -> setVisible(Boolean.TRUE));
     }

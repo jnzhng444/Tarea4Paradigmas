@@ -8,7 +8,7 @@ public final class CrocodileBlue implements Entity {
     private CrocodileBlueState state;
     private Float platformX;
     private Float heightFloat;
-    private Integer targetLianaIndex;  // NUEVO: liana objetivo
+    private Integer targetLianaIndex;  // liana objetivo
     
     private static final Random random = new Random();
     
@@ -17,6 +17,7 @@ public final class CrocodileBlue implements Entity {
         DESCENDING_LIANA
     }
 
+    // Constructor existente para spawner automático (camina en plataforma)
     public CrocodileBlue(Height platformHeight, Speed speed, Float startX){
         this.liana = null;
         this.height = Objects.requireNonNull(platformHeight);
@@ -27,13 +28,31 @@ public final class CrocodileBlue implements Entity {
         try {
             this.heightFloat = Float.parseFloat(platformHeight.value());
         } catch (Exception e) {
-            this.heightFloat = 12.0f;
+            this.heightFloat = Float.valueOf(12.0f);
         }
         
-        // NUEVO: Elegir una liana aleatoria como objetivo (1-6)
+        // Elegir una liana aleatoria como objetivo (1-6)
         this.targetLianaIndex = Integer.valueOf(random.nextInt(6) + 1);
         
-        System.out.println("[BLUE CREATED] Target liana: " + targetLianaIndex + ", height=" + heightFloat + ", x=" + startX);
+        System.out.println("[BLUE CREATED WALKING] Target liana: " + targetLianaIndex + ", height=" + heightFloat + ", x=" + startX);
+    }
+
+    // NUEVO: Constructor para spawneo directo en liana (ADMIN CONSOLE)
+    public CrocodileBlue(LianaId liana, Height height, Speed speed){
+        this.liana = Objects.requireNonNull(liana);
+        this.height = Objects.requireNonNull(height);
+        this.speed  = Objects.requireNonNull(speed);
+        this.state = CrocodileBlueState.DESCENDING_LIANA; // Ya empieza bajando
+        this.platformX = null; // No aplica
+        this.targetLianaIndex = null; // No necesita target, ya está en liana
+        
+        try {
+            this.heightFloat = Float.parseFloat(height.value());
+        } catch (Exception e) {
+            this.heightFloat = Float.valueOf(12.0f);
+        }
+        
+        System.out.println("[BLUE CREATED ON LIANA] liana=" + liana.value() + ", height=" + heightFloat + " (ADMIN SPAWN)");
     }
     
     @Override 
@@ -50,17 +69,17 @@ public final class CrocodileBlue implements Entity {
     public CrocodileBlue step(Level level){
         try {
             if (state == CrocodileBlueState.WALKING_ON_PLATFORM) {
-                Float moveSpeed = 1.5f;
+                Float moveSpeed = Float.valueOf(1.5f);
                 platformX = platformX + moveSpeed;
                 
-                // CAMBIO: Solo verificar la liana objetivo
+                // Solo verificar la liana objetivo
                 LianaId targetLiana = new LianaId(targetLianaIndex.toString());
                 
                 if (level.hasLiana(targetLiana)) {
                     Float targetX = level.xOf(targetLiana);
                     
                     // Si llegamos a la liana objetivo
-                    if (Math.abs(platformX - targetX) < 5.0f) {
+                    if (Math.abs(platformX - targetX) < Float.valueOf(5.0f)) {
                         this.liana = targetLiana;
                         this.platformX = targetX;
                         this.state = CrocodileBlueState.DESCENDING_LIANA;
@@ -68,7 +87,7 @@ public final class CrocodileBlue implements Entity {
                         try {
                             this.heightFloat = Float.parseFloat(height.value());
                         } catch (Exception e) {
-                            this.heightFloat = 12.0f;
+                            this.heightFloat = Float.valueOf(12.0f);
                         }
                         
                         System.out.println("[BLUE] Started descending on target liana " + targetLiana.value() + " at x=" + platformX);
@@ -85,13 +104,14 @@ public final class CrocodileBlue implements Entity {
                 return this;
                 
             } else {
-                Float descentSpeed = 0.1f;
+                // DESCENDING_LIANA
+                Float descentSpeed = Float.valueOf(0.1f);
                 heightFloat = heightFloat - descentSpeed;
                 
                 Integer heightInt = Math.round(heightFloat);
                 this.height = new Height(heightInt.toString());
                 
-                if (heightFloat <= 0.0f) {
+                if (heightFloat <= Float.valueOf(0.0f)) {
                     System.out.println("[BLUE] Disappeared at bottom");
                     return null;
                 }

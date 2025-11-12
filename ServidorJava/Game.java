@@ -19,7 +19,7 @@ public final class Game {
     private Speed speed = new Speed("0.1");
 
     private Integer ticksSinceLastBlueSpawn = Integer.valueOf(0);
-    private static final Integer BLUE_SPAWN_INTERVAL = Integer.valueOf(360); //     aprox cada 18 segundos (360 ticks de 0.05s)
+    private static final Integer BLUE_SPAWN_INTERVAL = Integer.valueOf(360); // aprox cada 18 segundos
 
     private final Level level;
     private final PhysicsEngine physics;
@@ -51,9 +51,20 @@ public final class Game {
         emitState();
     }
 
+    // Spawner automático: sigue igual (camina desde izquierda)
     public void spawnCrocodileBlue(final Height platformHeight){
         // Crea un azul que empieza caminando en la plataforma
         var blue = factory.newBlue(platformHeight, speed);
+        blues.add(blue);
+        level.addCrocBlue(blue);
+        emitState();
+    }
+
+    // NUEVO: Para admin console - spawnearlo directo en liana en altura máxima
+    public void spawnCrocodileBlueOnLiana(final LianaId liana){
+        if (!level.hasLiana(liana)) return; // validación
+        // Siempre empieza en altura máxima (12) y bajando
+        var blue = factory.newBlueOnLiana(liana, new Height(GameRules.HEIGHT_MAX.toString()), speed);
         blues.add(blue);
         level.addCrocBlue(blue);
         emitState();
@@ -88,18 +99,16 @@ public final class Game {
     }
 
     public void step(){
-        Float dt = 0.05f;
+        Float dt = Float.valueOf(0.05f);
 
         physics.update(dt);
 
         // Actualizar cocodrilos rojos
-        System.out.println("[GAME STEP] Updating " + reds.size() + " red crocodiles");
         for (var r : reds) {
             r.step();
         }
 
         // Actualizar cocodrilos azules
-        System.out.println("[GAME STEP] Updating " + blues.size() + " blue crocodiles");
         List<CrocodileBlue> bluesToRemove = new ArrayList<>();
         for (var b : blues) {
             CrocodileBlue updated = b.step(level);
@@ -110,10 +119,10 @@ public final class Game {
         blues.removeAll(bluesToRemove);
         level.crocodileBlues().removeAll(bluesToRemove);
 
-        // SPAWNER de azules
+        // SPAWNER de azules (automático cada 18 segundos)
         ticksSinceLastBlueSpawn = ticksSinceLastBlueSpawn + 1;
         if (ticksSinceLastBlueSpawn >= BLUE_SPAWN_INTERVAL) {
-            System.out.println("[GAME] Spawning new blue crocodile");
+            System.out.println("[GAME] Spawning new blue crocodile (automatic)");
             spawnCrocodileBlue(new Height("12"));
             ticksSinceLastBlueSpawn = Integer.valueOf(0);
         }
@@ -124,6 +133,7 @@ public final class Game {
 
         emitState();
     }
+
     // ===== ADMIN CONSOLE =====
     public String runAdminCommand(String line) {
         try {
@@ -151,8 +161,9 @@ public final class Game {
                         return ok ? "OK red" : "ERR liana";
                     }
                     case "blue" -> {
-                        String hStr = kv.getOrDefault("h", "12");
-                        spawnCrocodileBlue(new Height(hStr));
+                        String lStr = kv.get("l");
+                        if (lStr == null) return "ERR falta l";
+                        spawnCrocodileBlueOnLiana(new LianaId(lStr));
                         return "OK blue";
                     }
                     case "fruit" -> {
@@ -230,11 +241,6 @@ public final class Game {
                 bluesTxt.append("state=walking")
                     .append(",x=").append(String.format("%.1f", b.getPlatformX()))
                     .append(",h=").append(p.height().value());
-                
-                // Log para debug
-                if (Math.random() < 0.05) {
-                    System.out.println("[SNAPSHOT BLUE WALKING] x=" + String.format("%.1f", b.getPlatformX()));
-                }
             } else {
                 bluesTxt.append("state=descending")
                     .append(",l=").append(p.liana().value())

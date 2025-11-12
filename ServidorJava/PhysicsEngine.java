@@ -158,7 +158,7 @@ final class PhysicsEngine {
                 }
             }
 
-            // Guardamos posicion previa para swept (ahora PREV X y PREV Y)
+            // Guardamos posicion previa para swept
             Float prevX = phys.x;
             Float prevY = phys.y;
 
@@ -170,7 +170,7 @@ final class PhysicsEngine {
             phys.vx *= 0.85f;
             if (Math.abs(phys.vx) < 5.0f) phys.vx = Float.valueOf(0);
 
-            // Suelo: asumimos por defecto que no esta en ground (se recalculara)
+            // Suelo: asumimos por defecto que no esta en ground
             phys.onGround = Boolean.FALSE;
 
             // Coordenadas del AABB del jugador (actual y previas)
@@ -183,18 +183,18 @@ final class PhysicsEngine {
             Float prevRight  = prevX + PLAYER_WIDTH  * 0.5f;
             Float prevTop    = prevY - PLAYER_HEIGHT * 0.5f;
             Float prevBottom = prevY + PLAYER_HEIGHT * 0.5f;
-            // Tolerancia (ajustable)
+
+            // Tolerancia
             final Float SIDE_TOLERANCE = Float.valueOf(1.0f);
 
             for (Platform p : platforms) {
-                // Comprobaciones de solapamiento en proyeccion X/Y
+                // Comprobaciones de solapamiento
                 Boolean overlapX_now = playerRight > p.x && playerLeft < p.x + p.w;
                 Boolean overlapX_prev = prevRight > p.x && prevLeft < p.x + p.w;
 
                 // ===== COLISIÓN VERTICAL (TECHO / SUELO) =====
                 
                 // ATERRIZAJE DESDE ARRIBA - Swept Collision Detection
-                // Detectamos si el jugador CRUZÓ la superficie superior entre frames
                 if (prevBottom <= p.y && playerBottom >= p.y && overlapX_prev) {
                     // Posicionar exactamente sobre la plataforma
                     phys.onGround = Boolean.TRUE;
@@ -205,15 +205,14 @@ final class PhysicsEngine {
                     playerTop = phys.y - PLAYER_HEIGHT * 0.5f;
                     playerBottom = phys.y + PLAYER_HEIGHT * 0.5f;
                 }
-                // Golpe con el techo (prevTop >= p.y + p.h && currTop <= p.y + p.h)
+                // Golpe con el techo
                 else if (prevTop >= p.y + p.h && playerTop <= p.y + p.h && overlapX_now) {
-                    // poner al jugador justo debajo de la plataforma (colision con la cara inferior)
                     phys.y = (p.y + p.h) + (PLAYER_HEIGHT * 0.5f);
                     phys.vy = Float.valueOf(0);
                 }
 
-                // Colisiones horizontales (laterales)
-                // Colision desde la izquierda (prevRight <= p.x && currRight >= p.x)
+                // ===== COLISIONES HORIZONTALES (LATERALES) =====
+                // Colision desde la izquierda
                 if (prevRight <= p.x && playerRight >= p.x) {
                     if (playerBottom > p.y + SIDE_TOLERANCE && playerTop < p.y + p.h - SIDE_TOLERANCE) {
                         phys.x = p.x - PLAYER_WIDTH * 0.5f - 0.01f;
@@ -222,7 +221,7 @@ final class PhysicsEngine {
                         playerRight = phys.x + PLAYER_WIDTH  * 0.5f;
                     }
                 }
-                // Colision desde la derecha (prevLeft >= p.x + p.w && currLeft <= p.x + p.w)
+                // Colision desde la derecha
                 else if (prevLeft >= p.x + p.w && playerLeft <= p.x + p.w) {
                     if (playerBottom > p.y + SIDE_TOLERANCE && playerTop < p.y + p.h - SIDE_TOLERANCE) {
                         phys.x = p.x + p.w + PLAYER_WIDTH * 0.5f + 0.01f;
@@ -238,7 +237,7 @@ final class PhysicsEngine {
             if (phys.x > GameRules.MAX_X) phys.x = GameRules.MAX_X;
             if (phys.y > GameRules.MAX_Y) respawn(phys);
 
-            // COLISIONES CON ENTIDADES (todas centradas)
+            // COLISIONES CON ENTIDADES
             Rect pr = playerRect(phys.x, phys.y);
 
             // Rojos
@@ -256,17 +255,15 @@ final class PhysicsEngine {
                     }
                 } catch (Exception e) {
                     System.err.println("[ERROR RED] " + e.getMessage());
-                    e.printStackTrace();
                 }
             }
 
             // Azules
-                // En la sección de colisiones con azules
             for (CrocodileBlue bc : level.crocodileBlues()) {
                 try {
-                    // VALIDACION: Si el azul está en liana "0", está caminando, no bajando
+                    // VALIDACION: Si el azul está en liana "0", está caminando
                     if (bc.position().liana().value().equals("0")) {
-                        continue; // Saltar este azul, está caminando en plataforma
+                        continue;
                     }
                     
                     Float cx = level.xOf(bc.position().liana());
@@ -280,10 +277,9 @@ final class PhysicsEngine {
                         break;
                     }
                 } catch (Exception e) {
-                    System.err.println("[ERROR BLUE ON LIANA] " + e.getMessage());
+                    System.err.println("[ERROR BLUE] " + e.getMessage());
                 }
             }
-
 
             // Frutas
             for (Fruit f : level.fruits()) {
@@ -306,7 +302,6 @@ final class PhysicsEngine {
                     }
                 } catch (Exception e) {
                     System.err.println("[ERROR FRUIT] " + e.getMessage());
-                    e.printStackTrace();
                 }
             }
         }
@@ -332,10 +327,6 @@ final class PhysicsEngine {
         System.out.println("  Position: x=" + phys.x + ", y=" + phys.y);
         System.out.println("  Velocity: vx=" + phys.vx + ", vy=" + phys.vy);
         System.out.println("  onLiana: " + phys.onLiana + ", onGround: " + phys.onGround);
-        System.out.println("  Bounds check:");
-        System.out.println("    MIN_X=" + GameRules.MIN_X + " (is x < MIN_X? " + (phys.x < GameRules.MIN_X) + ")");
-        System.out.println("    MAX_X=" + GameRules.MAX_X + " (is x > MAX_X? " + (phys.x > GameRules.MAX_X) + ")");
-        System.out.println("    MAX_Y=" + GameRules.MAX_Y + " (is y > MAX_Y? " + (phys.y > GameRules.MAX_Y) + ")");
         System.out.println("════════════════════════════════════════");
         
         phys.x = Float.valueOf(150.0f);
