@@ -27,6 +27,8 @@ public final class CrocodileRed implements Entity {
     }
     
     @Override public Position position(){ return new Position(liana, height); }
+    
+    public Boolean isGoingUp() { return goingUp; }
 
     public CrocodileRed step(){
         try {

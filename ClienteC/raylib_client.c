@@ -43,6 +43,9 @@ static float g_feet_offset = 0.0f;
 // ===== FEEDBACK / EFECTOS =====
 static double g_respawn_flash_until = 0.0;
 
+// ===== DIRECCIÓN DEL JUGADOR =====
+static float g_last_player_x = -999.0f;
+
 typedef struct {
     bool active;
     Vector2 pos;
@@ -156,6 +159,9 @@ static void parse_players_block(const char* start, const char* end) {
 
         if (idbuf[0] && g_local_id[0] && strcmp(idbuf, g_local_id)==0) {
             PlayerState* p = &g_world.players[0];
+            bool was_initialized = (g_world.playerCount > 0);
+            bool prev_facing = was_initialized ? p->facingRight : true;
+            
             memset(p, 0, sizeof(*p));
             strncpy(p->id, idbuf, sizeof(p->id)-1);
 
@@ -165,7 +171,8 @@ static void parse_players_block(const char* start, const char* end) {
             const char* score_ptr = strstr(item, "score=");
             const char* respawn_ptr = strstr(item, "respawned=");
 
-            if (x_ptr)      p->pos.x = parse_float_loose(x_ptr+2);
+            float new_x = 0.0f;
+            if (x_ptr)      new_x = p->pos.x = parse_float_loose(x_ptr+2);
             if (y_ptr)      p->pos.y = parse_float_loose(y_ptr+2);
             if (liana_ptr)  p->onLiana = (parse_float_loose(liana_ptr+8) > 0.5f);
             if (score_ptr)  p->score = (int)parse_float_loose(score_ptr+6);
@@ -175,6 +182,19 @@ static void parse_players_block(const char* start, const char* end) {
                     g_respawn_flash_until = GetTime() + 0.35;
                 }
             }
+
+            // Actualizar dirección basada en movimiento
+            if (g_last_player_x > -990.0f) {
+                float dx = new_x - g_last_player_x;
+                if (fabsf(dx) > 0.5f) {  // Solo actualizar si hay movimiento significativo
+                    p->facingRight = (dx > 0);
+                } else {
+                    p->facingRight = prev_facing;  // Mantener dirección anterior
+                }
+            } else {
+                p->facingRight = true;  // Por defecto mirando a la derecha
+            }
+            g_last_player_x = new_x;
 
             g_world.playerCount = 1;
             break;
@@ -193,12 +213,27 @@ static void parse_reds_block(const char* start, const char* end) {
     char* saveptr = NULL;
     char* item = strtok_r(buf, "|", &saveptr);
     while (item && g_world.redCount < MAX_REDS) {
-        int l = 0, h = 0; (void)sscanf(item, " l=%d , h=%d ", &l, &h);
+        int l = 0, h = 0;
+        int goingUp = 0;
+        
+        // Parsear l y h
+        (void)sscanf(item, " l=%d , h=%d ", &l, &h);
+        
+        // Buscar goingUp en el string
+        const char* goingUp_ptr = strstr(item, "goingUp=");
+        if (goingUp_ptr) {
+            goingUp = parse_int_loose(goingUp_ptr + 8);
+        }
+        
         RedCroc* r = &g_world.reds[g_world.redCount];
         r->pos.x = liana_to_x(l);
         r->pos.y = height_to_y(h);
         r->lianaIndex = (l>0) ? (l-1) : 0;
-        r->speed = 60.0f; r->minH=0.0f; r->maxH=(float)h; r->goingUp=false;
+        r->speed = 60.0f;
+        r->minH = 0.0f;
+        r->maxH = (float)h;
+        r->goingUp = (goingUp != 0);
+        
         g_world.redCount++;
         item = strtok_r(NULL, "|", &saveptr);
     }
@@ -502,6 +537,36 @@ static void draw_player(PlayerState* p) {
     }
 }
 
+static void draw_red_croc(RedCroc* r) {
+    float x = r->pos.x;
+    float y = r->pos.y;
+    
+    // Determinar rotación basada en dirección de movimiento
+    float rotation = r->goingUp ? 180.0f : 0.0f;
+    
+    // Configurar rectángulos de origen y destino
+    Rectangle src = {0, 0, (float)g_red_croc_sprite.width, (float)g_red_croc_sprite.height};
+    Rectangle dst = {
+        x,  // Centro X
+        y,  // Centro Y
+        (float)g_red_croc_sprite.width,
+        (float)g_red_croc_sprite.height
+    };
+    
+    // El origen es el centro del sprite para que rote correctamente
+    Vector2 origin = {
+        (float)g_red_croc_sprite.width * 0.5f,
+        (float)g_red_croc_sprite.height * 0.5f
+    };
+    
+    DrawTexturePro(g_red_croc_sprite, src, dst, origin, rotation, WHITE);
+    
+    if (g_debug_draw) {
+        DrawCircleLines((int)x, (int)y, 3, RED);
+        DrawText(r->goingUp ? "UP" : "DOWN", (int)x + 15, (int)y, 10, RED);
+    }
+}
+
 static void draw_popups(void) {
     double tnow = GetTime();
     for (int i = 0; i < POPUP_MAX; i++) {
@@ -576,9 +641,7 @@ static void draw_world(void) {
         }
     }
     for (int i=0;i<w.redCount;i++) {
-        float x = w.reds[i].pos.x - g_red_croc_sprite.width  / 2;
-        float y = w.reds[i].pos.y - g_red_croc_sprite.height / 2;
-        DrawTextureV(g_red_croc_sprite, (Vector2){x,y}, WHITE);
+        draw_red_croc(&w.reds[i]);
     }
     for (int i=0;i<w.playerCount;i++) draw_player(&w.players[i]);
 

@@ -229,7 +229,8 @@ public final class Game {
             var p = r.position();
             if (redsTxt.length() > Integer.valueOf(0)) redsTxt.append("|");
             redsTxt.append("l=").append(p.liana().value())
-                .append(",h=").append(p.height().value());
+                .append(",h=").append(p.height().value())
+                .append(",goingUp=").append(r.isGoingUp() ? "1" : "0");
         }
 
         var bluesTxt = new StringBuilder();
