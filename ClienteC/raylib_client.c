@@ -541,6 +541,9 @@ static void draw_red_croc(RedCroc* r) {
     float x = r->pos.x;
     float y = r->pos.y;
     
+    // Escala para hacer el cocodrilo más grande
+    float scale = 2.3f;
+    
     // Determinar rotación basada en dirección de movimiento
     float rotation = r->goingUp ? 180.0f : 0.0f;
     
@@ -549,14 +552,14 @@ static void draw_red_croc(RedCroc* r) {
     Rectangle dst = {
         x,  // Centro X
         y,  // Centro Y
-        (float)g_red_croc_sprite.width,
-        (float)g_red_croc_sprite.height
+        (float)g_red_croc_sprite.width * scale,
+        (float)g_red_croc_sprite.height * scale
     };
     
     // El origen es el centro del sprite para que rote correctamente
     Vector2 origin = {
-        (float)g_red_croc_sprite.width * 0.5f,
-        (float)g_red_croc_sprite.height * 0.5f
+        (float)g_red_croc_sprite.width * scale * 0.5f,
+        (float)g_red_croc_sprite.height * scale * 0.5f
     };
     
     DrawTexturePro(g_red_croc_sprite, src, dst, origin, rotation, WHITE);
@@ -625,14 +628,36 @@ static void draw_world(void) {
     if (g_debug_draw) level_draw_debug(&g_level);
 
     for (int i=0;i<w.fruitCount;i++) if (!w.fruits[i].collected) {
-        float x = w.fruits[i].pos.x - g_fruit_sprite.width  / 2;
-        float y = w.fruits[i].pos.y - g_fruit_sprite.height / 2;
-        DrawTextureV(g_fruit_sprite, (Vector2){x,y}, WHITE);
+        // Escala para hacer las frutas más grandes
+        float scale = 1.8f;
+        float scaled_w = g_fruit_sprite.width * scale;
+        float scaled_h = g_fruit_sprite.height * scale;
+        
+        Rectangle src = {0, 0, (float)g_fruit_sprite.width, (float)g_fruit_sprite.height};
+        Rectangle dst = {
+            w.fruits[i].pos.x - scaled_w / 2,
+            w.fruits[i].pos.y - scaled_h / 2,
+            scaled_w,
+            scaled_h
+        };
+        
+        DrawTexturePro(g_fruit_sprite, src, dst, (Vector2){0,0}, 0.0f, WHITE);
     }
     for (int i=0;i<w.blueCount;i++) if (w.blues[i].active) {
-        float x = w.blues[i].pos.x - g_blue_croc_sprite.width  / 2;
-        float y = w.blues[i].pos.y - g_blue_croc_sprite.height / 2;
-        DrawTextureV(g_blue_croc_sprite, (Vector2){x,y}, WHITE);
+        // Escala para hacer el cocodrilo azul más grande
+        float scale = 2.3f;
+        float scaled_w = g_blue_croc_sprite.width * scale;
+        float scaled_h = g_blue_croc_sprite.height * scale;
+        
+        Rectangle src = {0, 0, (float)g_blue_croc_sprite.width, (float)g_blue_croc_sprite.height};
+        Rectangle dst = {
+            w.blues[i].pos.x - scaled_w / 2,
+            w.blues[i].pos.y - scaled_h / 2,
+            scaled_w,
+            scaled_h
+        };
+        
+        DrawTexturePro(g_blue_croc_sprite, src, dst, (Vector2){0,0}, 0.0f, WHITE);
         
         if (g_debug_draw) {
             DrawCircleLines((int)w.blues[i].pos.x, (int)w.blues[i].pos.y, 3, SKYBLUE);

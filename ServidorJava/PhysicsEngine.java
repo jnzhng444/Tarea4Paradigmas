@@ -360,13 +360,15 @@ final class PhysicsEngine {
     }
 
     private static Rect crocRect(Float x, Float y, Boolean isRed) {
-        Float w = isRed ? Float.valueOf(26f) : Float.valueOf(22f);
-        Float h = isRed ? Float.valueOf(22f) : Float.valueOf(18f);
+        // Hitboxes ajustadas para sprites escalados 2.3x
+        Float w = isRed ? Float.valueOf(60f) : Float.valueOf(51f);
+        Float h = isRed ? Float.valueOf(51f) : Float.valueOf(41f);
         return new Rect(x - w/2, y - h/2, w, h);
     }
 
     private static Rect fruitRect(Float x, Float y) {
-        Float w = Float.valueOf(14f), h = Float.valueOf(14f);
+        // Hitbox ajustada para sprites escalados 1.8x
+        Float w = Float.valueOf(25f), h = Float.valueOf(25f);
         return new Rect(x - w/2, y - h/2, w, h);
     }
 }
