@@ -18,9 +18,8 @@ public final class Game {
 
     private Speed speed = new Speed("0.1");
 
-    // ⭐ Spawner de cocodrilos azules
     private Integer ticksSinceLastBlueSpawn = Integer.valueOf(0);
-    private static final Integer BLUE_SPAWN_INTERVAL = Integer.valueOf(120); // cada 120 ticks (~6 segundos)
+    private static final Integer BLUE_SPAWN_INTERVAL = Integer.valueOf(360); //     aprox cada 18 segundos (360 ticks de 0.05s)
 
     private final Level level;
     private final PhysicsEngine physics;

@@ -1,4 +1,5 @@
 import java.util.Objects;
+import java.util.Random;
 
 public final class CrocodileBlue implements Entity {
     private LianaId liana;
@@ -7,6 +8,9 @@ public final class CrocodileBlue implements Entity {
     private CrocodileBlueState state;
     private Float platformX;
     private Float heightFloat;
+    private Integer targetLianaIndex;  // NUEVO: liana objetivo
+    
+    private static final Random random = new Random();
     
     public enum CrocodileBlueState {
         WALKING_ON_PLATFORM,
@@ -26,7 +30,10 @@ public final class CrocodileBlue implements Entity {
             this.heightFloat = 12.0f;
         }
         
-        System.out.println("[BLUE CREATED] Initial state: WALKING, height=" + heightFloat + ", x=" + startX);
+        // NUEVO: Elegir una liana aleatoria como objetivo (1-6)
+        this.targetLianaIndex = Integer.valueOf(random.nextInt(6) + 1);
+        
+        System.out.println("[BLUE CREATED] Target liana: " + targetLianaIndex + ", height=" + heightFloat + ", x=" + startX);
     }
     
     @Override 
@@ -46,14 +53,16 @@ public final class CrocodileBlue implements Entity {
                 Float moveSpeed = 1.5f;
                 platformX = platformX + moveSpeed;
                 
-                for (Integer i = Integer.valueOf(0); i < level.lianaCount(); i = i + 1) {
-                    LianaId lianaId = new LianaId(String.valueOf(i + 1));
-                    Float lianaX = level.xOf(lianaId);
+                // CAMBIO: Solo verificar la liana objetivo
+                LianaId targetLiana = new LianaId(targetLianaIndex.toString());
+                
+                if (level.hasLiana(targetLiana)) {
+                    Float targetX = level.xOf(targetLiana);
                     
-                    // CAMBIO: Rango más estrecho (de 15 a 5) para que solo agarre cuando esté MUY cerca
-                    if (Math.abs(platformX - lianaX) < 5.0f) {
-                        this.liana = lianaId;
-                        this.platformX = lianaX;
+                    // Si llegamos a la liana objetivo
+                    if (Math.abs(platformX - targetX) < 5.0f) {
+                        this.liana = targetLiana;
+                        this.platformX = targetX;
                         this.state = CrocodileBlueState.DESCENDING_LIANA;
                         
                         try {
@@ -62,19 +71,15 @@ public final class CrocodileBlue implements Entity {
                             this.heightFloat = 12.0f;
                         }
                         
-                        System.out.println("[BLUE] Started descending on liana " + lianaId.value() + " at x=" + platformX);
+                        System.out.println("[BLUE] Started descending on target liana " + targetLiana.value() + " at x=" + platformX);
                         return this;
                     }
                 }
                 
+                // Si sale del límite derecho, desaparece
                 if (platformX > GameRules.MAX_X) {
                     System.out.println("[BLUE] Disappeared at right edge at x=" + platformX);
                     return null;
-                }
-                
-                // Log para ver el azul caminando
-                if (Math.random() < 0.02) {
-                    System.out.println("[BLUE WALKING] x=" + platformX);
                 }
                 
                 return this;
