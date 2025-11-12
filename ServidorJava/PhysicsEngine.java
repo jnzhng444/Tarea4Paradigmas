@@ -183,29 +183,27 @@ final class PhysicsEngine {
             Float prevRight  = prevX + PLAYER_WIDTH  * 0.5f;
             Float prevTop    = prevY - PLAYER_HEIGHT * 0.5f;
             Float prevBottom = prevY + PLAYER_HEIGHT * 0.5f;
-
-            // Tolerancias (ajustables)
-            final Float SNAP_TOLERANCE = Float.valueOf(15.0f);  // para aterrizaje desde arriba
-            final Float SIDE_TOLERANCE = Float.valueOf(1.0f);   // evitar quedarse "pegado" por float rounding
+            // Tolerancia (ajustable)
+            final Float SIDE_TOLERANCE = Float.valueOf(1.0f);
 
             for (Platform p : platforms) {
-                // Primero: comprobaciones de solapamiento en proyeccion X/Y para decidir que eje colisiono
+                // Comprobaciones de solapamiento en proyeccion X/Y
                 Boolean overlapX_now = playerRight > p.x && playerLeft < p.x + p.w;
-                Boolean overlapY_now = playerBottom > p.y && playerTop < p.y + p.h;
+                Boolean overlapX_prev = prevRight > p.x && prevLeft < p.x + p.w;
 
-                // Si no hay superposicion en absoluto, siguiente plataforma
-                if (!overlapX_now && !overlapY_now) continue;
-
-                // Colisiones verticales (techo / suelo)
-                // Aterrizaje desde arriba (prevBottom <= p.y && currBottom >= p.y)
-                if (prevBottom <= p.y && playerBottom >= p.y && overlapX_now) {
-                    Float distToSurface = playerBottom - p.y;
-                    if (distToSurface <= SNAP_TOLERANCE) {
-                        // Snap hacia arriba (landing)
-                        phys.onGround = Boolean.TRUE;
-                        phys.y = p.y - (PLAYER_HEIGHT * 0.5f);
-                        phys.vy = Float.valueOf(0);
-                    }
+                // ===== COLISIÓN VERTICAL (TECHO / SUELO) =====
+                
+                // ATERRIZAJE DESDE ARRIBA - Swept Collision Detection
+                // Detectamos si el jugador CRUZÓ la superficie superior entre frames
+                if (prevBottom <= p.y && playerBottom >= p.y && overlapX_prev) {
+                    // Posicionar exactamente sobre la plataforma
+                    phys.onGround = Boolean.TRUE;
+                    phys.y = p.y - (PLAYER_HEIGHT * 0.5f);
+                    phys.vy = Float.valueOf(0);
+                    
+                    // Actualizar coordenadas del AABB después del ajuste
+                    playerTop = phys.y - PLAYER_HEIGHT * 0.5f;
+                    playerBottom = phys.y + PLAYER_HEIGHT * 0.5f;
                 }
                 // Golpe con el techo (prevTop >= p.y + p.h && currTop <= p.y + p.h)
                 else if (prevTop >= p.y + p.h && playerTop <= p.y + p.h && overlapX_now) {
