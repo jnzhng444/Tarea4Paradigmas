@@ -107,9 +107,20 @@ final class PhysicsEngine {
 
                 for (CrocodileBlue bc : level.crocodileBlues()) {
                     try {
-                        Float cx = level.xOf(bc.position().liana());
-                        Integer logicalH = Integer.parseInt(bc.position().height().value());
-                        Float cy = heightToPixels(logicalH);
+                        Float cx, cy;
+                        
+                        // Si está caminando en plataforma (liana "0")
+                        if (bc.position().liana().value().equals("0")) {
+                            cx = bc.getPlatformX();
+                            Integer logicalH = Integer.parseInt(bc.position().height().value());
+                            cy = heightToPixels(logicalH);
+                        } 
+                        // Si está bajando en una liana
+                        else {
+                            cx = level.xOf(bc.position().liana());
+                            Integer logicalH = Integer.parseInt(bc.position().height().value());
+                            cy = heightToPixels(logicalH);
+                        }
 
                         if (rectOverlap(pr, crocRect(cx, cy, Boolean.FALSE))) {
                             System.out.println("[COLLISION ON LIANA] BLUE CROC HIT!");
@@ -261,14 +272,20 @@ final class PhysicsEngine {
             // Azules
             for (CrocodileBlue bc : level.crocodileBlues()) {
                 try {
-                    // VALIDACION: Si el azul está en liana "0", está caminando
-                    if (bc.position().liana().value().equals("0")) {
-                        continue;
-                    }
+                    Float cx, cy;
                     
-                    Float cx = level.xOf(bc.position().liana());
-                    Integer logicalH = Integer.parseInt(bc.position().height().value());
-                    Float cy = heightToPixels(logicalH);
+                    // Si está caminando en plataforma (liana "0")
+                    if (bc.position().liana().value().equals("0")) {
+                        cx = bc.getPlatformX();
+                        Integer logicalH = Integer.parseInt(bc.position().height().value());
+                        cy = heightToPixels(logicalH);
+                    } 
+                    // Si está bajando en una liana
+                    else {
+                        cx = level.xOf(bc.position().liana());
+                        Integer logicalH = Integer.parseInt(bc.position().height().value());
+                        cy = heightToPixels(logicalH);
+                    }
 
                     if (rectOverlap(pr, crocRect(cx, cy, Boolean.FALSE))) {
                         System.out.println("[COLLISION] BLUE CROC HIT!");

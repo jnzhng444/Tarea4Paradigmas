@@ -32,6 +32,7 @@ typedef struct {
     int lianaIndex;
     float speed;
     bool active;
+    bool isWalking;  // true cuando está caminando en plataforma, false cuando desciende
 } BlueCroc;
 
 typedef struct {

@@ -279,6 +279,8 @@ static void parse_blues_block(const char* start, const char* end) {
                 b->pos.y = height_to_y(h_val);
             }
             
+            b->isWalking = true;
+            
             printf("[CLIENT] Blue WALKING: x=%.1f (parsed %.1f), h=%d -> y=%.1f\n", 
                    b->pos.x, x_val, h_val, b->pos.y);
             
@@ -294,6 +296,8 @@ static void parse_blues_block(const char* start, const char* end) {
             b->pos.x = liana_to_x(l);
             b->pos.y = height_to_y(h);
             b->lianaIndex = (l > 0) ? (l - 1) : 0;
+            
+            b->isWalking = false;
             
             printf("[CLIENT] Blue DESCENDING: l=%d h=%d -> x=%.1f y=%.1f\n", 
                    l, h, b->pos.x, b->pos.y);
@@ -575,6 +579,45 @@ static void draw_red_croc(RedCroc* r) {
     }
 }
 
+static void draw_blue_croc(BlueCroc* b) {
+    float x = b->pos.x;
+    float y = b->pos.y;
+    
+    // Escala para hacer el cocodrilo más grande
+    float scale = 2.3f;
+    
+    // Cuando camina: rotar 90 grados y espejear verticalmente
+    float rotation = b->isWalking ? 90.0f : 0.0f;
+    
+    // Configurar rectángulos de origen y destino
+    // Para espejear verticalmente cuando camina, usamos alto negativo
+    Rectangle src = {
+        0, 0, 
+        (float)g_blue_croc_sprite.width,
+        b->isWalking ? -(float)g_blue_croc_sprite.height : (float)g_blue_croc_sprite.height
+    };
+    Rectangle dst = {
+        x,  // Centro X
+        y,  // Centro Y
+        (float)g_blue_croc_sprite.width * scale,
+        (float)g_blue_croc_sprite.height * scale
+    };
+    
+    // El origen es el centro del sprite para que rote correctamente
+    Vector2 origin = {
+        (float)g_blue_croc_sprite.width * scale * 0.5f,
+        (float)g_blue_croc_sprite.height * scale * 0.5f
+        
+    };
+    
+    DrawTexturePro(g_blue_croc_sprite, src, dst, origin, rotation, WHITE);
+    
+    if (g_debug_draw) {
+        DrawCircleLines((int)x, (int)y, 3, SKYBLUE);
+        DrawText(b->isWalking ? "WALK" : "DESC", (int)x + 15, (int)y, 10, SKYBLUE);
+    }
+}
+
 static void draw_popups(void) {
     double tnow = GetTime();
     for (int i = 0; i < POPUP_MAX; i++) {
@@ -649,26 +692,7 @@ static void draw_world(void) {
         DrawTexturePro(g_fruit_sprite, src, dst, (Vector2){0,0}, 0.0f, WHITE);
     }
     for (int i=0;i<w.blueCount;i++) if (w.blues[i].active) {
-        // Escala para hacer el cocodrilo azul más grande
-        float scale = 2.3f;
-        float scaled_w = g_blue_croc_sprite.width * scale;
-        float scaled_h = g_blue_croc_sprite.height * scale;
-        
-        Rectangle src = {0, 0, (float)g_blue_croc_sprite.width, (float)g_blue_croc_sprite.height};
-        Rectangle dst = {
-            w.blues[i].pos.x - scaled_w / 2,
-            w.blues[i].pos.y - scaled_h / 2,
-            scaled_w,
-            scaled_h
-        };
-        
-        DrawTexturePro(g_blue_croc_sprite, src, dst, (Vector2){0,0}, 0.0f, WHITE);
-        
-        if (g_debug_draw) {
-            DrawCircleLines((int)w.blues[i].pos.x, (int)w.blues[i].pos.y, 3, SKYBLUE);
-            DrawText(TextFormat("%.0f,%.0f", w.blues[i].pos.x, w.blues[i].pos.y), 
-                     (int)w.blues[i].pos.x + 10, (int)w.blues[i].pos.y, 12, SKYBLUE);
-        }
+        draw_blue_croc(&w.blues[i]);
     }
     for (int i=0;i<w.redCount;i++) {
         draw_red_croc(&w.reds[i]);
