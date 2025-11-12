@@ -1,5 +1,3 @@
-
-
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 
@@ -26,7 +24,7 @@ public final class AdminConsole implements Runnable {
     public void run() {
         try (var in = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8))) {
             System.out.println("[ADMIN] Consola lista. Escribe 'help', 'list' o 'quit'.");
-            while (true) {
+            while (Boolean.TRUE) {
                 System.out.print("> ");
                 String line = in.readLine();
                 if (line == null) break;
@@ -49,7 +47,7 @@ public final class AdminConsole implements Runnable {
                 }
 
                 // Contexto de consola: escribe a System.out
-                var out = new PrintWriter(new OutputStreamWriter(System.out, StandardCharsets.UTF_8), true);
+                var out = new PrintWriter(new OutputStreamWriter(System.out, StandardCharsets.UTF_8), Boolean.TRUE);
                 var ctx = new ClientContext(out);
 
                 try {
@@ -89,13 +87,13 @@ public final class AdminConsole implements Runnable {
             return;
         }
         System.out.println("Jugadores activos:");
-        int i = 1;
+        Integer i = 1;
         for (ClientContext s : list) {
             if (s.role() == Role.PLAYER && s.playerId() != null) {
                 System.out.printf("  %d) %s%n", i++, s.playerId().value());
             }
         }
-        if (i == 1) {
+        if (i.equals(1)) {
             System.out.println("  (sin jugadores PLAYER con id)");
         }
     }

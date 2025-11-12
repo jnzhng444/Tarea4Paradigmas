@@ -1,5 +1,3 @@
-
-
 import java.util.Objects;
 import java.util.concurrent.*;
 
@@ -14,7 +12,7 @@ public final class GameLoop {
     }
 
     public void start(){
-        long period = Long.parseLong(tickMillis); // infraestructura, no dominio
+        Long period = Long.parseLong(tickMillis); // infraestructura, no dominio
         exec.scheduleAtFixedRate(game::step, period, period, TimeUnit.MILLISECONDS);
     }
 

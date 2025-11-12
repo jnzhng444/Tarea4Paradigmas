@@ -20,27 +20,27 @@ final class Level {
 
     Level() {
         // Plataformas
-        platforms.add(new Platform(50, 520, 200, 20));      // piso
-        platforms.add(new Platform(330, 500, 100, 20));    
-        platforms.add(new Platform(475, 510, 90, 20));     
-        platforms.add(new Platform(600, 510, 100, 20));
+        platforms.add(new Platform(Float.valueOf(50), Float.valueOf(520), Float.valueOf(200), Float.valueOf(20)));      // piso
+        platforms.add(new Platform(Float.valueOf(330), Float.valueOf(500), Float.valueOf(100), Float.valueOf(20)));    
+        platforms.add(new Platform(Float.valueOf(475), Float.valueOf(510), Float.valueOf(90), Float.valueOf(20)));     
+        platforms.add(new Platform(Float.valueOf(600), Float.valueOf(510), Float.valueOf(100), Float.valueOf(20)));
         
          // nivel 2
-        platforms.add(new Platform(240, 340, 180, 15));
-        platforms.add(new Platform(570, 300, 180, 15));
+        platforms.add(new Platform(Float.valueOf(240), Float.valueOf(340), Float.valueOf(180), Float.valueOf(15)));
+        platforms.add(new Platform(Float.valueOf(570), Float.valueOf(300), Float.valueOf(180), Float.valueOf(15)));
 
-        platforms.add(new Platform(240, 250, 200, 15));     // nivel 3
+        platforms.add(new Platform(Float.valueOf(240), Float.valueOf(250), Float.valueOf(200), Float.valueOf(15)));     // nivel 3
 
-        platforms.add(new Platform(500, 145, 170, 15));     // nivel 4
+        platforms.add(new Platform(Float.valueOf(500), Float.valueOf(145), Float.valueOf(170), Float.valueOf(15)));     // nivel 4
 
-        platforms.add(new Platform(40, 130, 500, 15));     // nivel 5
+        platforms.add(new Platform(Float.valueOf(40), Float.valueOf(130), Float.valueOf(500), Float.valueOf(15)));     // nivel 5
 
 
         // Lianas con IDs "1".."N"
-        for (int i = 0; i < 6; i++) {
-            float x = 100.0f + i * 120.0f;
+        for (Integer i = Integer.valueOf(0); i < Integer.valueOf(6); i = i + 1) {
+            Float x = Float.valueOf(100.0f + i * 120.0f);
             LianaId id = new LianaId(String.valueOf(i + 1));
-            Liana    li = new Liana(x, 30.0f, 540.0f);
+            Liana    li = new Liana(x, Float.valueOf(30.0f), Float.valueOf(540.0f));
             lianaSlots.add(new LianaSlot(id, li));
             idToIndex.put(id.value(), i);
         }
@@ -49,9 +49,9 @@ final class Level {
     List<Platform> platforms() { return platforms; }
 
     // === Lianas (API pública del Level) ===
-    int lianaCount() { return lianaSlots.size(); }
+    Integer lianaCount() { return lianaSlots.size(); }
 
-    boolean hasLiana(LianaId id) { return idToIndex.containsKey(id.value()); }
+    Boolean hasLiana(LianaId id) { return idToIndex.containsKey(id.value()); }
 
     OptionalInt indexOf(LianaId id) {
         Integer idx = idToIndex.get(id.value());
@@ -64,7 +64,7 @@ final class Level {
         return Optional.of(lianaSlots.get(idx.getAsInt()).liana);
     }
 
-    float xOf(LianaId id) {
+    Float xOf(LianaId id) {
         var li = lianaById(id).orElseThrow(() ->
             new IllegalArgumentException("Liana no existe: " + id.value()));
         return li.x;

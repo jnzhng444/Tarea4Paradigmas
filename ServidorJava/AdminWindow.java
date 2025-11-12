@@ -1,4 +1,3 @@
-
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
@@ -36,46 +35,46 @@ public final class AdminWindow extends JFrame {
         buildUI();
         wireEvents();
         setDefaultCloseOperation(WindowConstants.HIDE_ON_CLOSE);
-        setSize(900, 600);
+        setSize(Integer.valueOf(900), Integer.valueOf(600));
         setLocationRelativeTo(null);
     }
 
     private void buildUI() {
-        var content = new JPanel(new BorderLayout(12, 12));
-        content.setBorder(new EmptyBorder(12, 12, 12, 12));
+        var content = new JPanel(new BorderLayout(Integer.valueOf(12), Integer.valueOf(12)));
+        content.setBorder(new EmptyBorder(Integer.valueOf(12), Integer.valueOf(12), Integer.valueOf(12), Integer.valueOf(12)));
         setContentPane(content);
 
         // Panel izquierda: consola
-        outArea.setEditable(false);
-        outArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 13));
+        outArea.setEditable(Boolean.FALSE);
+        outArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, Integer.valueOf(13)));
         var scroll = new JScrollPane(outArea);
         scroll.setBorder(BorderFactory.createTitledBorder("Salida"));
 
-        var inputPanel = new JPanel(new BorderLayout(8, 8));
+        var inputPanel = new JPanel(new BorderLayout(Integer.valueOf(8), Integer.valueOf(8)));
         inputPanel.setBorder(BorderFactory.createTitledBorder("Comando"));
         inputPanel.add(inField, BorderLayout.CENTER);
 
-        var buttonsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        var buttonsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, Integer.valueOf(8), Integer.valueOf(0)));
         buttonsPanel.add(helpBtn);
         buttonsPanel.add(sendBtn);
         inputPanel.add(buttonsPanel, BorderLayout.EAST);
 
-        var left = new JPanel(new BorderLayout(8, 8));
+        var left = new JPanel(new BorderLayout(Integer.valueOf(8), Integer.valueOf(8)));
         left.add(scroll, BorderLayout.CENTER);
         left.add(inputPanel, BorderLayout.SOUTH);
 
         // Panel derecha: players
-        playersList.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
+        playersList.setFont(new Font(Font.MONOSPACED, Font.PLAIN, Integer.valueOf(12)));
         var rightScroll = new JScrollPane(playersList);
         rightScroll.setBorder(BorderFactory.createTitledBorder("Players (doble clic inserta en comando)"));
 
-        var rightBtns = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        var rightBtns = new JPanel(new FlowLayout(FlowLayout.RIGHT, Integer.valueOf(8), Integer.valueOf(0)));
         rightBtns.add(refreshBtn);
 
-        var right = new JPanel(new BorderLayout(8, 8));
+        var right = new JPanel(new BorderLayout(Integer.valueOf(8), Integer.valueOf(8)));
         right.add(rightScroll, BorderLayout.CENTER);
         right.add(rightBtns, BorderLayout.SOUTH);
-        right.setPreferredSize(new Dimension(320, 0));
+        right.setPreferredSize(new Dimension(Integer.valueOf(320), Integer.valueOf(0)));
 
         content.add(left, BorderLayout.CENTER);
         content.add(right, BorderLayout.EAST);
@@ -101,9 +100,9 @@ public final class AdminWindow extends JFrame {
         // Doble clic en lista -> insertar plantilla ADMIN <id>
         playersList.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent e) {
-                if (e.getClickCount() == 2) {
+                if (e.getClickCount() == Integer.valueOf(2)) {
                     var idx = playersList.locationToIndex(e.getPoint());
-                    if (idx >= 0) {
+                    if (idx >= Integer.valueOf(0)) {
                         var id = playersModel.get(idx);
                         // si la línea ya tiene texto, respetamos lo anterior
                         var base = inField.getText();
@@ -127,7 +126,7 @@ public final class AdminWindow extends JFrame {
         if (line.isEmpty()) return;
 
         // ClientContext que escribe en el área de salida
-        var writer = new PrintWriter(new TextAreaOutputStream(outArea), true, StandardCharsets.UTF_8);
+        var writer = new PrintWriter(new TextAreaOutputStream(outArea), Boolean.TRUE, StandardCharsets.UTF_8);
         var ctx = new ClientContext(writer);
 
         try {
@@ -176,12 +175,19 @@ public final class AdminWindow extends JFrame {
     private static final class TextAreaOutputStream extends OutputStream {
         private final JTextArea target;
         public TextAreaOutputStream(JTextArea target) { this.target = target; }
-        @Override public void write(int b) {
+        
+        // IMPORTANTE: Estos métodos deben mantener los tipos primitivos porque están 
+        // sobrescribiendo métodos de OutputStream (clase del JDK)
+        @Override 
+        public void write(int b) {
             append(new String(new byte[]{(byte)b}, StandardCharsets.UTF_8));
         }
-        @Override public void write(byte[] b, int off, int len) {
+        
+        @Override 
+        public void write(byte[] b, int off, int len) {
             append(new String(b, off, len, StandardCharsets.UTF_8));
         }
+        
         private void append(String s) {
             if (SwingUtilities.isEventDispatchThread()) {
                 target.append(s);
@@ -197,6 +203,6 @@ public final class AdminWindow extends JFrame {
 
     /** Muestra la ventana (EDT). */
     public void showWindow() {
-        SwingUtilities.invokeLater(() -> setVisible(true));
+        SwingUtilities.invokeLater(() -> setVisible(Boolean.TRUE));
     }
 }

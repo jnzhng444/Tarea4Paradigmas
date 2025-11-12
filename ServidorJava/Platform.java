@@ -1,8 +1,6 @@
-
-
 final class Platform {
-    final float x, y, w, h;
-    Platform(float x, float y, float w, float h) {
+    final Float x, y, w, h;
+    Platform(Float x, Float y, Float w, Float h) {
         this.x = x; this.y = y; this.w = w; this.h = h;
     }
 }

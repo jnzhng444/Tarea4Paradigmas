@@ -1,5 +1,3 @@
-
-
 import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
@@ -8,7 +6,7 @@ import java.util.concurrent.Executors;
 import javax.swing.SwingUtilities;
 
 public class LineServer {
-    private final int port;
+    private final Integer port;
     private final String serverId;
 
     // ★ Fábrica explícita para el dominio
@@ -18,7 +16,7 @@ public class LineServer {
     private final MatchRegistry matches = new MatchRegistry(factory);
     private final SessionRegistry sessions = new SessionRegistry();
 
-    public LineServer(int port, String serverId) {
+    public LineServer(Integer port, String serverId) {
         this.port = port;
         this.serverId = serverId;
     }
@@ -40,10 +38,10 @@ public class LineServer {
 
             // Consola admin (si la quieres conservar)
             var admin = new Thread(new AdminConsole(dispatcher, sessions), "AdminConsole");
-            admin.setDaemon(true);
+            admin.setDaemon(Boolean.TRUE);
             admin.start();
 
-            while (true) {
+            while (Boolean.TRUE) {
                 var client = server.accept();
                 pool.execute(() -> handleClient(client, dispatcher));
             }
@@ -55,7 +53,7 @@ public class LineServer {
     private void handleClient(Socket client, CommandDispatcherWithGame dispatcher) {
         try (client;
              var in  = new BufferedReader(new InputStreamReader(client.getInputStream(), StandardCharsets.UTF_8));
-             var out = new PrintWriter(new OutputStreamWriter(client.getOutputStream(), StandardCharsets.UTF_8), true)) {
+             var out = new PrintWriter(new OutputStreamWriter(client.getOutputStream(), StandardCharsets.UTF_8), Boolean.TRUE)) {
 
             var ctx = new ClientContext(out);
 

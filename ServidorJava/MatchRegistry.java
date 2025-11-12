@@ -1,23 +1,21 @@
-
-
 import java.io.PrintWriter;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 public final class MatchRegistry {
-    private static final int MAX_PLAYERS = 2;
+    private static final Integer MAX_PLAYERS = Integer.valueOf(2);
 
     // playerId -> GameRoom
     private final Map<PlayerId, GameRoom> rooms = new LinkedHashMap<>();
 
-    // ★ NUEVO: fábrica explícita para que cada sala cree su Game con Factory Method
+    // fábrica explícita para que cada sala cree su Game con Factory Method
     private final DefaultEntityFactory factory;
 
     public MatchRegistry(DefaultEntityFactory factory) {
         this.factory = factory;
     }
 
-    public boolean canAddPlayer(){
+    public Boolean canAddPlayer(){
         return rooms.size() < MAX_PLAYERS;
     }
 
@@ -30,11 +28,11 @@ public final class MatchRegistry {
     }
 
     /** Adjunta un writer (cliente) a la sala de ese jugador */
-    public boolean attachTo(PlayerId target, PrintWriter out){
+    public Boolean attachTo(PlayerId target, PrintWriter out){
         GameRoom r = rooms.get(target);
-        if (r == null) return false;
+        if (r == null) return Boolean.FALSE;
         r.attach(out);
-        return true;
+        return Boolean.TRUE;
     }
 
     /** Obtiene el Game de la sala de un jugador (para MOVE/ADMIN) */

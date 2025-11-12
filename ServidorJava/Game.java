@@ -51,7 +51,7 @@ public final class Game {
 
     public void deleteFruit(final LianaId l, final Height h){
         fruits.removeIf(f -> f.position().liana().equals(l) && f.position().height().equals(h));
-        level.fruits().removeIf(f -> f.position().liana().equals(l) && f.position().height().equals(h));  // ⭐ AGREGAR
+        level.fruits().removeIf(f -> f.position().liana().equals(l) && f.position().height().equals(h));
         emitState();
     }
 
@@ -77,7 +77,7 @@ public final class Game {
 
     // ===== LOOP (cada ~50ms para 60 FPS simulado) =====
     public void step(){
-        float dt = 0.05f; // 50ms
+        Float dt = 0.05f; // 50ms
 
         physics.update(dt);
 
@@ -103,17 +103,17 @@ public final class Game {
     public String runAdminCommand(String line) {
         try {
             String[] toks = line.trim().split("\\s+");
-            if (toks.length < 2) return "ERR sintaxis";
+            if (toks.length < Integer.valueOf(2)) return "ERR sintaxis";
 
-            String cmd = toks[0].toLowerCase(Locale.ROOT);
+            String cmd = toks[Integer.valueOf(0)].toLowerCase(Locale.ROOT);
             if ("spawn".equals(cmd)) {
-                if (toks.length < 3) return "ERR sintaxis";
-                String what = toks[1].toLowerCase(Locale.ROOT);
+                if (toks.length < Integer.valueOf(3)) return "ERR sintaxis";
+                String what = toks[Integer.valueOf(1)].toLowerCase(Locale.ROOT);
 
                 Map<String,String> kv = new HashMap<>();
-                for (int i = 2; i < toks.length; i++) {
-                    String[] kvp = toks[i].split("=", 2);
-                    if (kvp.length == 2) kv.put(kvp[0].toLowerCase(Locale.ROOT), kvp[1]);
+                for (Integer i = Integer.valueOf(2); i < toks.length; i = i + 1) {
+                    String[] kvp = toks[i].split("=", Integer.valueOf(2));
+                    if (kvp.length == Integer.valueOf(2)) kv.put(kvp[Integer.valueOf(0)].toLowerCase(Locale.ROOT), kvp[Integer.valueOf(1)]);
                 }
 
                 String lStr = kv.get("l");
@@ -123,19 +123,19 @@ public final class Game {
                 switch (what) {
                     case "red" -> {
                         String hStr = kv.getOrDefault("h", "0");
-                        boolean ok = safeSpawnRed(lianaId, new Height(hStr));
+                        Boolean ok = safeSpawnRed(lianaId, new Height(hStr));
                         emitState();
                         return ok ? "OK red" : "ERR liana";
                     }
                     case "blue" -> {
-                        boolean ok = safeSpawnBlue(lianaId);
+                        Boolean ok = safeSpawnBlue(lianaId);
                         emitState();
                         return ok ? "OK blue" : "ERR liana";
                     }
                     case "fruit" -> {
                         String hStr   = kv.getOrDefault("h", "0");
                         String ptsStr = kv.getOrDefault("pts", "100");
-                        boolean ok = safeSpawnFruit(lianaId, new Height(hStr), new Points(ptsStr));
+                        Boolean ok = safeSpawnFruit(lianaId, new Height(hStr), new Points(ptsStr));
                         emitState();
                         return ok ? "OK fruit" : "ERR liana";
                     }
@@ -144,13 +144,13 @@ public final class Game {
                     }
                 }
             } else if ("delete".equals(cmd)) {
-                if (toks.length < 3) return "ERR sintaxis";
-                String what = toks[1].toLowerCase(Locale.ROOT);
+                if (toks.length < Integer.valueOf(3)) return "ERR sintaxis";
+                String what = toks[Integer.valueOf(1)].toLowerCase(Locale.ROOT);
 
                 Map<String,String> kv = new HashMap<>();
-                for (int i = 2; i < toks.length; i++) {
-                    String[] kvp = toks[i].split("=", 2);
-                    if (kvp.length == 2) kv.put(kvp[0].toLowerCase(Locale.ROOT), kvp[1]);
+                for (Integer i = Integer.valueOf(2); i < toks.length; i = i + 1) {
+                    String[] kvp = toks[i].split("=", Integer.valueOf(2));
+                    if (kvp.length == Integer.valueOf(2)) kv.put(kvp[Integer.valueOf(0)].toLowerCase(Locale.ROOT), kvp[Integer.valueOf(1)]);
                 }
 
                 if ("fruit".equals(what)) {
@@ -180,18 +180,18 @@ public final class Game {
             var id = entry.getKey();
             var phys = entry.getValue();
 
-            if (playersTxt.length() > 0) playersTxt.append("|");
+            if (playersTxt.length() > Integer.valueOf(0)) playersTxt.append("|");
             playersTxt.append("id=").append(id.value())
                       .append(",x=").append(String.format("%.1f", phys.x))
                       .append(",y=").append(String.format("%.1f", phys.y))
                       .append(",onLiana=").append(phys.onLiana ? "1" : "0")
-                      .append(",score=").append(phys.score);  // ⭐ AGREGAR SCORE
+                      .append(",score=").append(phys.score);
         }
 
         var redsTxt = new StringBuilder();
         for (var r : reds) {
             var p = r.position();
-            if (redsTxt.length() > 0) redsTxt.append("|");
+            if (redsTxt.length() > Integer.valueOf(0)) redsTxt.append("|");
             redsTxt.append("l=").append(p.liana().value())
                    .append(",h=").append(p.height().value());
         }
@@ -199,20 +199,19 @@ public final class Game {
         var bluesTxt = new StringBuilder();
         for (var b : blues) {
             var p = b.position();
-            if (bluesTxt.length() > 0) bluesTxt.append("|");
+            if (bluesTxt.length() > Integer.valueOf(0)) bluesTxt.append("|");
             bluesTxt.append("l=").append(p.liana().value())
                    .append(",h=").append(p.height().value());
         }
 
         var fruitsTxt = new StringBuilder();
         for (var f : fruits) {
-            // Ya no necesitamos verificar isCollected() porque se borran en step()
             var p = f.position();
-            if (fruitsTxt.length() > 0) fruitsTxt.append("|");
+            if (fruitsTxt.length() > Integer.valueOf(0)) fruitsTxt.append("|");
             fruitsTxt.append("l=").append(p.liana().value())
                      .append(",h=").append(p.height().value())
                      .append(",pts=").append(f.points().value())
-                     .append(",col=0");  // Siempre 0 porque las collected ya fueron borradas
+                     .append(",col=0");
         }
 
         return "STATE players=[" + playersTxt + "] reds=[" + redsTxt +
@@ -220,27 +219,27 @@ public final class Game {
     }
 
     // ===== Helpers internos (validan liana antes de spawnear) =====
-    private boolean safeSpawnRed(LianaId l, Height h) {
-        if (!level.hasLiana(l)) return false;
+    private Boolean safeSpawnRed(LianaId l, Height h) {
+        if (!level.hasLiana(l)) return Boolean.FALSE;
         var red = factory.newRed(l, h, speed);
         reds.add(red);
-        level.addCrocRed(red);  // ⭐ AGREGAR AL LEVEL
-        return true;
+        level.addCrocRed(red);
+        return Boolean.TRUE;
     }
 
-    private boolean safeSpawnBlue(LianaId l) {
-        if (!level.hasLiana(l)) return false;
+    private Boolean safeSpawnBlue(LianaId l) {
+        if (!level.hasLiana(l)) return Boolean.FALSE;
         var blue = factory.newBlue(l, speed);
         blues.add(blue);
-        level.addCrocBlue(blue);  // ⭐ AGREGAR AL LEVEL
-        return true;
+        level.addCrocBlue(blue);
+        return Boolean.TRUE;
     }
 
-    private boolean safeSpawnFruit(LianaId l, Height h, Points p) {
-        if (!level.hasLiana(l)) return false;
+    private Boolean safeSpawnFruit(LianaId l, Height h, Points p) {
+        if (!level.hasLiana(l)) return Boolean.FALSE;
         var fruit = factory.newFruit(l, h, p);
         fruits.add(fruit);
-        level.addFruit(fruit);  // ⭐ AGREGAR AL LEVEL
-        return true;
+        level.addFruit(fruit);
+        return Boolean.TRUE;
     }
 }

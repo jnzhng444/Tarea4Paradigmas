@@ -1,5 +1,3 @@
-
-
 import java.util.Objects;
 
 public final class CrocodileBlue implements Entity {
@@ -15,7 +13,7 @@ public final class CrocodileBlue implements Entity {
     @Override public Position position(){ return new Position(liana, height); }
 
     public CrocodileBlue step(){
-        // Simular “caer” alternando una bandera o anotando estado textual.
+        // Simular "caer" alternando una bandera o anotando estado textual.
         return this;
     }
 }

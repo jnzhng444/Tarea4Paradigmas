@@ -2,8 +2,8 @@ import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 final class PhysicsEngine {
-    private static final float PLAYER_WIDTH  = 20.0f;
-    private static final float PLAYER_HEIGHT = 30.0f;
+    private static final Float PLAYER_WIDTH  = Float.valueOf(20.0f);
+    private static final Float PLAYER_HEIGHT = Float.valueOf(30.0f);
 
     private final Level level;
     private final Map<PlayerId, PlayerPhysics> playerPhysics = new HashMap<>();
@@ -30,12 +30,12 @@ final class PhysicsEngine {
         moves.offer(new MoveCommand(id, dir));
     }
 
-    void update(float dt) {
+    void update(Float dt) {
         processMoves(dt);
         updatePhysics(dt);
     }
 
-    private void processMoves(float dt) {
+    private void processMoves(Float dt) {
         MoveCommand m;
         while ((m = moves.poll()) != null) {
             var phys = playerPhysics.get(m.player());
@@ -57,9 +57,9 @@ final class PhysicsEngine {
                 case JUMP -> {
                     if (phys.onGround && !phys.onLiana) {
                         phys.vy = -GameRules.JUMP_FORCE;
-                        phys.onGround = false;
+                        phys.onGround = Boolean.FALSE;
                     } else if (phys.onLiana) {
-                        phys.onLiana = false;
+                        phys.onLiana = Boolean.FALSE;
                         phys.vy = -GameRules.JUMP_FORCE * 0.5f;
                     }
                 }
@@ -67,7 +67,7 @@ final class PhysicsEngine {
         }
     }
 
-    private void updatePhysics(float dt) {
+    private void updatePhysics(Float dt) {
         final var platforms = level.platforms();
         final var lianas    = level.lianas();
 
@@ -76,25 +76,25 @@ final class PhysicsEngine {
             if (phys.onLiana) {
                 phys.y += phys.vy * dt;
 
-                if (phys.lianaIndex >= 0 && phys.lianaIndex < lianas.size()) {
+                if (phys.lianaIndex >= Integer.valueOf(0) && phys.lianaIndex < lianas.size()) {
                     Liana liana = lianas.get(phys.lianaIndex);
                     if (phys.y < liana.topY) phys.y = liana.topY;
                     if (phys.y > liana.bottomY) {
                         phys.y = liana.bottomY;
-                        phys.onLiana = false;
+                        phys.onLiana = Boolean.FALSE;
                     }
                 }
-                phys.vy = 0;
+                phys.vy = Float.valueOf(0);
 
                 Rect pr = playerRect(phys.x, phys.y);
 
                 for (CrocodileRed rc : level.crocodileReds()) {
                     try {
-                        float cx = level.xOf(rc.position().liana());
-                        int logicalH = Integer.parseInt(rc.position().height().value());
-                        float cy = heightToPixels(logicalH);
+                        Float cx = level.xOf(rc.position().liana());
+                        Integer logicalH = Integer.parseInt(rc.position().height().value());
+                        Float cy = heightToPixels(logicalH);
 
-                        if (rectOverlap(pr, crocRect(cx, cy, true))) {
+                        if (rectOverlap(pr, crocRect(cx, cy, Boolean.TRUE))) {
                             System.out.println("[COLLISION ON LIANA] RED CROC HIT!");
                             respawn(phys);
                             phys.markRespawned();
@@ -107,11 +107,11 @@ final class PhysicsEngine {
 
                 for (CrocodileBlue bc : level.crocodileBlues()) {
                     try {
-                        float cx = level.xOf(bc.position().liana());
-                        int logicalH = Integer.parseInt(bc.position().height().value());
-                        float cy = heightToPixels(logicalH);
+                        Float cx = level.xOf(bc.position().liana());
+                        Integer logicalH = Integer.parseInt(bc.position().height().value());
+                        Float cy = heightToPixels(logicalH);
 
-                        if (rectOverlap(pr, crocRect(cx, cy, false))) {
+                        if (rectOverlap(pr, crocRect(cx, cy, Boolean.FALSE))) {
                             System.out.println("[COLLISION ON LIANA] BLUE CROC HIT!");
                             respawn(phys);
                             phys.markRespawned();
@@ -126,17 +126,17 @@ final class PhysicsEngine {
                     try {
                         if (f.isCollected()) continue;
 
-                        float fx = level.xOf(f.position().liana());
-                        int logicalH = Integer.parseInt(f.position().height().value());
-                        float fy = heightToPixels(logicalH);
+                        Float fx = level.xOf(f.position().liana());
+                        Integer logicalH = Integer.parseInt(f.position().height().value());
+                        Float fy = heightToPixels(logicalH);
 
                         Rect fr = fruitRect(fx, fy);
-                        boolean overlap = rectOverlap(pr, fr);
+                        Boolean overlap = rectOverlap(pr, fr);
 
                         if (overlap) {
                             System.out.println("[COLLISION ON LIANA] FRUIT COLLECTED! Points: " + f.points().value());
-                            f.setCollected(true);
-                            int pts = Integer.parseInt(f.points().value());
+                            f.setCollected(Boolean.TRUE);
+                            Integer pts = Integer.parseInt(f.points().value());
                             phys.addScore(pts);
                             System.out.println("[SCORE] New score: " + phys.score);
                         }
@@ -159,8 +159,8 @@ final class PhysicsEngine {
             }
 
             // Guardamos posicion previa para swept (ahora PREV X y PREV Y)
-            float prevX = phys.x;
-            float prevY = phys.y;
+            Float prevX = phys.x;
+            Float prevY = phys.y;
 
             // Aplicamos integracion
             phys.x += phys.vx * dt;
@@ -168,30 +168,30 @@ final class PhysicsEngine {
 
             // Friccion
             phys.vx *= 0.85f;
-            if (Math.abs(phys.vx) < 5.0f) phys.vx = 0;
+            if (Math.abs(phys.vx) < 5.0f) phys.vx = Float.valueOf(0);
 
             // Suelo: asumimos por defecto que no esta en ground (se recalculara)
-            phys.onGround = false;
+            phys.onGround = Boolean.FALSE;
 
             // Coordenadas del AABB del jugador (actual y previas)
-            float playerLeft   = phys.x - PLAYER_WIDTH  * 0.5f;
-            float playerRight  = phys.x + PLAYER_WIDTH  * 0.5f;
-            float playerTop    = phys.y - PLAYER_HEIGHT * 0.5f;
-            float playerBottom = phys.y + PLAYER_HEIGHT * 0.5f;
+            Float playerLeft   = phys.x - PLAYER_WIDTH  * 0.5f;
+            Float playerRight  = phys.x + PLAYER_WIDTH  * 0.5f;
+            Float playerTop    = phys.y - PLAYER_HEIGHT * 0.5f;
+            Float playerBottom = phys.y + PLAYER_HEIGHT * 0.5f;
 
-            float prevLeft   = prevX - PLAYER_WIDTH  * 0.5f;
-            float prevRight  = prevX + PLAYER_WIDTH  * 0.5f;
-            float prevTop    = prevY - PLAYER_HEIGHT * 0.5f;
-            float prevBottom = prevY + PLAYER_HEIGHT * 0.5f;
+            Float prevLeft   = prevX - PLAYER_WIDTH  * 0.5f;
+            Float prevRight  = prevX + PLAYER_WIDTH  * 0.5f;
+            Float prevTop    = prevY - PLAYER_HEIGHT * 0.5f;
+            Float prevBottom = prevY + PLAYER_HEIGHT * 0.5f;
 
             // Tolerancias (ajustables)
-            final float SNAP_TOLERANCE = 15.0f;  // para aterrizaje desde arriba
-            final float SIDE_TOLERANCE = 1.0f;   // evitar quedarse "pegado" por float rounding
+            final Float SNAP_TOLERANCE = Float.valueOf(15.0f);  // para aterrizaje desde arriba
+            final Float SIDE_TOLERANCE = Float.valueOf(1.0f);   // evitar quedarse "pegado" por float rounding
 
             for (Platform p : platforms) {
                 // Primero: comprobaciones de solapamiento en proyeccion X/Y para decidir que eje colisiono
-                boolean overlapX_now = playerRight > p.x && playerLeft < p.x + p.w;
-                boolean overlapY_now = playerBottom > p.y && playerTop < p.y + p.h;
+                Boolean overlapX_now = playerRight > p.x && playerLeft < p.x + p.w;
+                Boolean overlapY_now = playerBottom > p.y && playerTop < p.y + p.h;
 
                 // Si no hay superposicion en absoluto, siguiente plataforma
                 if (!overlapX_now && !overlapY_now) continue;
@@ -199,19 +199,19 @@ final class PhysicsEngine {
                 // Colisiones verticales (techo / suelo)
                 // Aterrizaje desde arriba (prevBottom <= p.y && currBottom >= p.y)
                 if (prevBottom <= p.y && playerBottom >= p.y && overlapX_now) {
-                    float distToSurface = playerBottom - p.y;
+                    Float distToSurface = playerBottom - p.y;
                     if (distToSurface <= SNAP_TOLERANCE) {
                         // Snap hacia arriba (landing)
-                        phys.onGround = true;
+                        phys.onGround = Boolean.TRUE;
                         phys.y = p.y - (PLAYER_HEIGHT * 0.5f);
-                        phys.vy = 0;
+                        phys.vy = Float.valueOf(0);
                     }
                 }
                 // Golpe con el techo (prevTop >= p.y + p.h && currTop <= p.y + p.h)
                 else if (prevTop >= p.y + p.h && playerTop <= p.y + p.h && overlapX_now) {
                     // poner al jugador justo debajo de la plataforma (colision con la cara inferior)
                     phys.y = (p.y + p.h) + (PLAYER_HEIGHT * 0.5f);
-                    phys.vy = 0;
+                    phys.vy = Float.valueOf(0);
                 }
 
                 // Colisiones horizontales (laterales)
@@ -219,7 +219,7 @@ final class PhysicsEngine {
                 if (prevRight <= p.x && playerRight >= p.x) {
                     if (playerBottom > p.y + SIDE_TOLERANCE && playerTop < p.y + p.h - SIDE_TOLERANCE) {
                         phys.x = p.x - PLAYER_WIDTH * 0.5f - 0.01f;
-                        phys.vx = 0;
+                        phys.vx = Float.valueOf(0);
                         playerLeft  = phys.x - PLAYER_WIDTH  * 0.5f;
                         playerRight = phys.x + PLAYER_WIDTH  * 0.5f;
                     }
@@ -228,7 +228,7 @@ final class PhysicsEngine {
                 else if (prevLeft >= p.x + p.w && playerLeft <= p.x + p.w) {
                     if (playerBottom > p.y + SIDE_TOLERANCE && playerTop < p.y + p.h - SIDE_TOLERANCE) {
                         phys.x = p.x + p.w + PLAYER_WIDTH * 0.5f + 0.01f;
-                        phys.vx = 0;
+                        phys.vx = Float.valueOf(0);
                         playerLeft  = phys.x - PLAYER_WIDTH  * 0.5f;
                         playerRight = phys.x + PLAYER_WIDTH  * 0.5f;
                     }
@@ -246,11 +246,11 @@ final class PhysicsEngine {
             // Rojos
             for (CrocodileRed rc : level.crocodileReds()) {
                 try {
-                    float cx = level.xOf(rc.position().liana());
-                    int logicalH = Integer.parseInt(rc.position().height().value());
-                    float cy = heightToPixels(logicalH);
+                    Float cx = level.xOf(rc.position().liana());
+                    Integer logicalH = Integer.parseInt(rc.position().height().value());
+                    Float cy = heightToPixels(logicalH);
 
-                    if (rectOverlap(pr, crocRect(cx, cy, true))) {
+                    if (rectOverlap(pr, crocRect(cx, cy, Boolean.TRUE))) {
                         System.out.println("[COLLISION] RED CROC HIT!");
                         respawn(phys);
                         phys.markRespawned();
@@ -265,11 +265,11 @@ final class PhysicsEngine {
             // Azules
             for (CrocodileBlue bc : level.crocodileBlues()) {
                 try {
-                    float cx = level.xOf(bc.position().liana());
-                    int logicalH = Integer.parseInt(bc.position().height().value());
-                    float cy = heightToPixels(logicalH);
+                    Float cx = level.xOf(bc.position().liana());
+                    Integer logicalH = Integer.parseInt(bc.position().height().value());
+                    Float cy = heightToPixels(logicalH);
 
-                    if (rectOverlap(pr, crocRect(cx, cy, false))) {
+                    if (rectOverlap(pr, crocRect(cx, cy, Boolean.FALSE))) {
                         System.out.println("[COLLISION] BLUE CROC HIT!");
                         respawn(phys);
                         phys.markRespawned();
@@ -286,17 +286,17 @@ final class PhysicsEngine {
                 try {
                     if (f.isCollected()) continue;
 
-                    float fx = level.xOf(f.position().liana());
-                    int logicalH = Integer.parseInt(f.position().height().value());
-                    float fy = heightToPixels(logicalH);
+                    Float fx = level.xOf(f.position().liana());
+                    Integer logicalH = Integer.parseInt(f.position().height().value());
+                    Float fy = heightToPixels(logicalH);
 
                     Rect fr = fruitRect(fx, fy);
-                    boolean overlap = rectOverlap(pr, fr);
+                    Boolean overlap = rectOverlap(pr, fr);
 
                     if (overlap) {
                         System.out.println("[COLLISION] FRUIT COLLECTED! Points: " + f.points().value());
-                        f.setCollected(true);
-                        int pts = Integer.parseInt(f.points().value());
+                        f.setCollected(Boolean.TRUE);
+                        Integer pts = Integer.parseInt(f.points().value());
                         phys.addScore(pts);
                         System.out.println("[SCORE] New score: " + phys.score);
                     }
@@ -310,13 +310,13 @@ final class PhysicsEngine {
 
     private void tryGrabLiana(PlayerPhysics phys) {
         var lianas = level.lianas();
-        for (int i = 0; i < lianas.size(); i++) {
-            if (lianas.get(i).canGrab(phys.x, phys.y, 30.0f)) {
-                phys.onLiana   = true;
+        for (Integer i = Integer.valueOf(0); i < lianas.size(); i = i + 1) {
+            if (lianas.get(i).canGrab(phys.x, phys.y, Float.valueOf(30.0f))) {
+                phys.onLiana   = Boolean.TRUE;
                 phys.lianaIndex = i;
                 phys.x = lianas.get(i).x;
-                phys.vx = 0;
-                phys.vy = 0;
+                phys.vx = Float.valueOf(0);
+                phys.vy = Float.valueOf(0);
                 break;
             }
         }
@@ -334,44 +334,44 @@ final class PhysicsEngine {
         System.out.println("    MAX_Y=" + GameRules.MAX_Y + " (is y > MAX_Y? " + (phys.y > GameRules.MAX_Y) + ")");
         System.out.println("════════════════════════════════════════");
         
-        phys.x = 150.0f;
-        phys.y = 490.0f;
-        phys.vy = 0;
-        phys.onGround = true;
-        phys.onLiana  = false;
-        phys.lianaIndex = -1;
+        phys.x = Float.valueOf(150.0f);
+        phys.y = Float.valueOf(490.0f);
+        phys.vy = Float.valueOf(0);
+        phys.onGround = Boolean.TRUE;
+        phys.onLiana  = Boolean.FALSE;
+        phys.lianaIndex = Integer.valueOf(-1);
     }
 
-    private static float heightToPixels(int logicalHeight) {
-        float min_y = 30.0f;
-        float max_y = 540.0f;
-        float range = max_y - min_y;
+    private static Float heightToPixels(Integer logicalHeight) {
+        Float min_y = Float.valueOf(30.0f);
+        Float max_y = Float.valueOf(540.0f);
+        Float range = max_y - min_y;
         return max_y - (logicalHeight / 12.0f) * range;
     }
 
     static final class Rect {
-        final float x, y, w, h;
-        Rect(float x, float y, float w, float h){ this.x=x; this.y=y; this.w=w; this.h=h; }
+        final Float x, y, w, h;
+        Rect(Float x, Float y, Float w, Float h){ this.x=x; this.y=y; this.w=w; this.h=h; }
     }
 
-    static boolean rectOverlap(Rect a, Rect b){
+    static Boolean rectOverlap(Rect a, Rect b){
         return a.x < b.x + b.w && a.x + a.w > b.x &&
                a.y < b.y + b.h && a.y + a.h > b.y;
     }
 
-    private static Rect playerRect(float x, float y){
+    private static Rect playerRect(Float x, Float y){
         return new Rect(x - PLAYER_WIDTH*0.5f, y - PLAYER_HEIGHT*0.5f,
                         PLAYER_WIDTH, PLAYER_HEIGHT);
     }
 
-    private static Rect crocRect(float x, float y, boolean isRed) {
-        float w = isRed ? 26f : 22f;
-        float h = isRed ? 22f : 18f;
+    private static Rect crocRect(Float x, Float y, Boolean isRed) {
+        Float w = isRed ? Float.valueOf(26f) : Float.valueOf(22f);
+        Float h = isRed ? Float.valueOf(22f) : Float.valueOf(18f);
         return new Rect(x - w/2, y - h/2, w, h);
     }
 
-    private static Rect fruitRect(float x, float y) {
-        float w = 14f, h = 14f;
+    private static Rect fruitRect(Float x, Float y) {
+        Float w = Float.valueOf(14f), h = Float.valueOf(14f);
         return new Rect(x - w/2, y - h/2, w, h);
     }
 }
