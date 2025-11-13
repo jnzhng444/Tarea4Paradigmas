@@ -17,6 +17,10 @@ final class Level {
     private final List<CrocodileRed> redCrocodiles = new ArrayList<>();
     private final List<CrocodileBlue> blueCrocodiles = new ArrayList<>();
     private final List<Fruit> fruitList = new ArrayList<>();
+    
+    // Posición de Mario (calculada desde DK)
+    private Float marioX;
+    private Float marioY;
 
     Level() {
         // Plataformas
@@ -37,6 +41,11 @@ final class Level {
         
         platforms.add(new Platform(Float.valueOf(150), Float.valueOf(50), Float.valueOf(50), Float.valueOf(15)));     // Mini plataforma de victoria
 
+        // Posición de Mario (al lado de DK)
+        // DK está en x=80 (40+40), y=110 (130-20)
+        // Mario está 60px a la derecha y 5px más abajo
+        this.marioX = Float.valueOf(140.0f);  // 80 + 60
+        this.marioY = Float.valueOf(115.0f);  // 110 + 5
 
         // Lianas personalizables - Formato: (x, topY, bottomY)
         // Puedes cambiar topY y bottomY para cada liana individualmente
@@ -71,6 +80,10 @@ final class Level {
     }
 
     List<Platform> platforms() { return platforms; }
+    
+    // Posición de Mario
+    Float marioX() { return marioX; }
+    Float marioY() { return marioY; }
 
     // === Lianas (API pública del Level) ===
     Integer lianaCount() { return lianaSlots.size(); }

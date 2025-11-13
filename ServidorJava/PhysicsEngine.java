@@ -91,6 +91,17 @@ final class PhysicsEngine {
                 phys.vy = Float.valueOf(0);
 
                 Rect pr = playerRect(phys.x, phys.y);
+                
+                // Colisión con Mario
+                Float marioX = level.marioX();
+                Float marioY = level.marioY();
+                Rect marioRect = new Rect(marioX - Float.valueOf(20.0f), marioY - Float.valueOf(20.0f), 
+                                         Float.valueOf(40.0f), Float.valueOf(40.0f));
+                if (rectOverlap(pr, marioRect)) {
+                    System.out.println("[COLLISION] Player touched Mario! Respawning...");
+                    respawn(phys);
+                    phys.markRespawned();
+                }
 
                 for (CrocodileRed rc : level.crocodileReds()) {
                     try {
@@ -257,6 +268,17 @@ final class PhysicsEngine {
 
             // COLISIONES CON ENTIDADES
             Rect pr = playerRect(phys.x, phys.y);
+            
+            // Colisión con Mario
+            Float marioX = level.marioX();
+            Float marioY = level.marioY();
+            Rect marioRect = new Rect(marioX - Float.valueOf(20.0f), marioY - Float.valueOf(20.0f), 
+                                     Float.valueOf(40.0f), Float.valueOf(40.0f));
+            if (rectOverlap(pr, marioRect)) {
+                System.out.println("[COLLISION] Player touched Mario! Respawning...");
+                respawn(phys);
+                phys.markRespawned();
+            }
 
             // Rojos
             for (CrocodileRed rc : level.crocodileReds()) {
