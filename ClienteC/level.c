@@ -73,7 +73,7 @@ void level_init(Level* lvl) {
     lvl->lianas[5].topY = 80.0f;
     lvl->lianas[5].bottomY = 520.0f;
     
-    // Liana 6 - Mini liana para acceder a la llave y miniplataforma (ID=7 en servidor, x=310)
+    // Liana 6 - Mini liana para acceder a la llave y miniplataforma (ID=7 en servidor)
     lvl->lianas[6].x = 220.0f;
     lvl->lianas[6].topY = 30.0f;
     lvl->lianas[6].bottomY = 90.0f;

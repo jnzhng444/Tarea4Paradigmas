@@ -78,7 +78,11 @@ final class PhysicsEngine {
 
                 if (phys.lianaIndex >= Integer.valueOf(0) && phys.lianaIndex < lianas.size()) {
                     Liana liana = lianas.get(phys.lianaIndex);
-                    if (phys.y < liana.topY) phys.y = liana.topY;
+                    // Solo para la mini liana (índice 6, ID "7"), permitir subir 20 píxeles extra
+                    Float allowedTopY = (phys.lianaIndex == Integer.valueOf(6)) 
+                        ? liana.topY - Float.valueOf(20.0f) 
+                        : liana.topY;
+                    if (phys.y < allowedTopY) phys.y = allowedTopY;
                     if (phys.y > liana.bottomY) {
                         phys.y = liana.bottomY;
                         phys.onLiana = Boolean.FALSE;
