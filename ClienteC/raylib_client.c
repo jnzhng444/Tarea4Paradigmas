@@ -85,7 +85,13 @@ static Rectangle player_hitbox(const PlayerState* p) {
 }
 
 // ============ HELPERS DE MAPEOS ============
-static inline float liana_to_x(int l) { if (l < 1) l = 1; return 100.0f + 120.0f*(float)(l-1); }
+static inline float liana_to_x(int l) { 
+    // Usar las posiciones reales de las lianas desde level.c
+    static const float liana_positions[] = {0, 100, 220, 340, 460, 540, 700, 220}; // índice 0 no usado, 1-7 son las lianas
+    if (l < 1) l = 1; 
+    if (l > 7) l = 7;
+    return liana_positions[l];
+}
 static inline float height_to_y(int h){ 
     // Mapea altura lógica (0-12) a píxeles del rango recortado (520-120)
     // h=0 -> y=520 (abajo), h=12 -> y=120 (arriba)
@@ -659,17 +665,17 @@ static void draw_popups(void) {
 }
 
 static void draw_hud(void) {
-    DrawRectangle(0, 0, 800, 50, (Color){0,0,0,180});
-    DrawText("WASD/Flechas: Mover | Espacio: Saltar | W/Up: Trepar | ESC: Salir | F1: Debug", 10, 10, 16, WHITE);
-
-    if (g_local_id[0]) {
-        char hud[128]; snprintf(hud, sizeof(hud), "ID: %.20s", g_local_id); DrawText(hud, 10, 30, 16, LIME);
-    }
-
+    // Score arriba a la derecha
     if (g_world.playerCount > 0) {
         PlayerState *p = &g_world.players[0];
         char hud2[128]; snprintf(hud2, sizeof(hud2), "Puntos: %d", p->score);
         DrawText(hud2, 680, 10, 18, YELLOW);
+    }
+
+    // ID abajo a la izquierda
+    if (g_local_id[0]) {
+        char hud[128]; snprintf(hud, sizeof(hud), "ID: %.20s", g_local_id);
+        DrawText(hud, 10, 570, 16, LIME);
     }
 
     if (!g_connected) { DrawRectangle(0,570,800,30,(Color){150,0,0,200}); DrawText("DESCONECTADO", 300, 575, 20, WHITE); }
@@ -677,15 +683,14 @@ static void draw_hud(void) {
 
 static void draw_debug_hud(void) {
     if (!g_debug_draw) return;
-    DrawRectangle(8, 56, 360, 90, (Color){0,0,0,140});
-    DrawText("DEBUG ON  (F1 toggle)", 16, 62, 14, YELLOW);
+    DrawRectangle(8, 56, 360, 74, (Color){0,0,0,140});
     char buf[256];
     snprintf(buf, sizeof(buf), "HB_SCALE_X: %.2f  (F7/F8 -/+)", g_hb_scale_x);
-    DrawText(buf, 16, 80, 14, LIGHTGRAY);
+    DrawText(buf, 16, 62, 14, LIGHTGRAY);
     snprintf(buf, sizeof(buf), "HB_SCALE_Y: %.2f  (F3/F4 -/+)", g_hb_scale_y);
-    DrawText(buf, 16, 96, 14, LIGHTGRAY);
+    DrawText(buf, 16, 78, 14, LIGHTGRAY);
     snprintf(buf, sizeof(buf), "FEET_OFFSET: %.2f  (F5/F6 -/+)", g_feet_offset);
-    DrawText(buf, 16, 112, 14, LIGHTGRAY);
+    DrawText(buf, 16, 94, 14, LIGHTGRAY);
 }
 
 static void draw_world(void) {

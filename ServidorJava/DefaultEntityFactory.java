@@ -1,9 +1,9 @@
 public final class DefaultEntityFactory {
 
-    // Azul: arranca en una plataforma caminando desde la izquierda (SPAWNER AUTOMÁTICO)
+    // Azul: arranca en una plataforma caminando desde Mario (SPAWNER AUTOMÁTICO)
     public CrocodileBlue newBlue(Height platformHeight, Speed speed) {
-        // Empieza desde el lado izquierdo de la pantalla
-        return new CrocodileBlue(platformHeight, speed, GameRules.MIN_X);
+        // Empieza desde donde está Mario (DK está en x=80, Mario en x=140)
+        return new CrocodileBlue(platformHeight, speed, Float.valueOf(140.0f));
     }
 
     // NUEVO: Azul que arranca directamente en una liana bajando (ADMIN CONSOLE)

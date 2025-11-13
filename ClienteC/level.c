@@ -94,8 +94,8 @@ void level_init(Level* lvl) {
     }
     
     // ===== MARIO =====
-    // Mario al lado de DK
-    lvl->marioPosition = (Vector2){lvl->dkPosition.x + 60.0f, lvl->dkPosition.y};
+    // Mario al lado de DK (ajustado para que sus pies estén en la plataforma)
+    lvl->marioPosition = (Vector2){lvl->dkPosition.x + 60.0f, lvl->dkPosition.y + 5.0f};
     
     // ===== MINIPLATAFORMA Y LLAVE =====
     lvl->winPlatform = (Rectangle){150, 50, 50, 15};
@@ -135,9 +135,10 @@ void level_draw(Level* lvl) {
     // Mario (al lado de DK)
     Vector2 mario = lvl->marioPosition;
     if (g_mario_sprite.width > 0 && g_mario_sprite.height > 0) {
-        float drawX = mario.x - g_mario_sprite.width / 2;
-        float drawY = mario.y - g_mario_sprite.height / 2;
-        DrawTextureV(g_mario_sprite, (Vector2){drawX, drawY}, WHITE);
+        float scale = 1.5f;  // Hacer Mario más grande
+        float drawX = mario.x - (g_mario_sprite.width * scale) / 2;
+        float drawY = mario.y - (g_mario_sprite.height * scale) / 2;
+        DrawTextureEx(g_mario_sprite, (Vector2){drawX, drawY}, 0.0f, scale, WHITE);
     } else {
         DrawCircleV(mario, 20, RED);
         DrawText("M", (int)mario.x - 8, (int)mario.y - 5, 10, WHITE);
