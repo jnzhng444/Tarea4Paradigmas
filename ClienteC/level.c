@@ -7,6 +7,8 @@
 
 // ============ VARIABLES EXTERNAS DE SPRITES ============
 extern Texture2D g_dk_sprite;
+extern Texture2D g_mario_sprite;
+extern Texture2D g_key_sprite;
 
 // ============ DEBUG LOCAL ============
 static bool s_debug = false;
@@ -33,9 +35,9 @@ void level_init(Level* lvl) {
     lvl->platforms[lvl->platformCount++] = (Platform){{500, 145, 170, 15}};
     // Nivel 5  <-- aquí va la plataforma donde pondremos a DK (meta)
     lvl->platforms[lvl->platformCount++] = (Platform){{40, 130, 500, 15}};
-
-    // ---- Nota: se ha eliminado la plataforma que estaba arriba ({300, 40, 200, 20})
-    //           tal y como solicitaste. Si quieres volver a añadirla, puedes hacerlo aquí.
+    
+    // Miniplataforma arriba de Mario (nivel final)
+    lvl->platforms[lvl->platformCount++] = (Platform){{150, 50, 50, 15}};
 
     // ===== LIANAS PERSONALIZABLES =====
     // Puedes cambiar topY y bottomY de cada liana individualmente
@@ -71,13 +73,18 @@ void level_init(Level* lvl) {
     lvl->lianas[5].topY = 80.0f;
     lvl->lianas[5].bottomY = 520.0f;
     
+    // Liana 6 - Mini liana para acceder a la llave y miniplataforma (ID=7 en servidor, x=310)
+    lvl->lianas[6].x = 220.0f;
+    lvl->lianas[6].topY = 30.0f;
+    lvl->lianas[6].bottomY = 90.0f;
+    
     lvl->lianaCount = DKJ_LIANAS;
 
     // ===== META DK =====
     // Colocamos a DK sobre la plataforma 5 (la última añadida arriba),
     // en el extremo izquierdo (+10 píx de margen) y un poco por encima de la plataforma.
-    if (lvl->platformCount > 0) {
-        Rectangle plat = lvl->platforms[lvl->platformCount - 1].rect;
+    if (lvl->platformCount > 1) {
+        Rectangle plat = lvl->platforms[lvl->platformCount - 2].rect;  // Penúltima (nivel 5)
         float dkX = plat.x + 40.0f;   // margen desde el borde izquierdo
         float dkY = plat.y - 20.0f;   // un poco por encima para que se vea sobre la plataforma
         lvl->dkPosition = (Vector2){ dkX, dkY };
@@ -85,6 +92,15 @@ void level_init(Level* lvl) {
         // fallback por si acaso
         lvl->dkPosition = (Vector2){40.0f, 110.0f};
     }
+    
+    // ===== MARIO =====
+    // Mario al lado de DK
+    lvl->marioPosition = (Vector2){lvl->dkPosition.x + 60.0f, lvl->dkPosition.y};
+    
+    // ===== MINIPLATAFORMA Y LLAVE =====
+    lvl->winPlatform = (Rectangle){150, 50, 50, 15};
+    lvl->keyPosition = (Vector2){240.0f, 60.0f};  // Arriba de la miniplataforma
+    lvl->hasKey = false;
 }
 
 // Dibuja el nivel con Raylib (modo normal)
@@ -114,6 +130,30 @@ void level_draw(Level* lvl) {
     } else {
         DrawCircleV(dk, 20, (Color){80, 50, 30, 255});
         DrawText("DK", (int)dk.x - 10, (int)dk.y - 5, 10, WHITE);
+    }
+    
+    // Mario (al lado de DK)
+    Vector2 mario = lvl->marioPosition;
+    if (g_mario_sprite.width > 0 && g_mario_sprite.height > 0) {
+        float drawX = mario.x - g_mario_sprite.width / 2;
+        float drawY = mario.y - g_mario_sprite.height / 2;
+        DrawTextureV(g_mario_sprite, (Vector2){drawX, drawY}, WHITE);
+    } else {
+        DrawCircleV(mario, 20, RED);
+        DrawText("M", (int)mario.x - 8, (int)mario.y - 5, 10, WHITE);
+    }
+    
+    // Llave (solo si no ha sido recogida)
+    if (!lvl->hasKey) {
+        Vector2 key = lvl->keyPosition;
+        if (g_key_sprite.width > 0 && g_key_sprite.height > 0) {
+            float drawX = key.x - g_key_sprite.width / 2;
+            float drawY = key.y - g_key_sprite.height / 2;
+            DrawTextureV(g_key_sprite, (Vector2){drawX, drawY}, WHITE);
+        } else {
+            DrawRectangle((int)key.x - 8, (int)key.y - 4, 16, 8, GOLD);
+            DrawText("KEY", (int)key.x - 12, (int)key.y - 12, 8, YELLOW);
+        }
     }
 }
 
@@ -187,7 +227,47 @@ bool level_can_grab_liana(Level* lvl, Vector2 pos, int* outIndex) {
     return false;
 }
 
-// Verifica si el jugador llegó a DK
+// Verifica si el jugador recoge la llave
+void level_check_key(Level* lvl, Vector2 playerPos) {
+    if (!lvl->hasKey) {
+        if (CheckCollisionCircles(playerPos, 15, lvl->keyPosition, 15)) {
+            lvl->hasKey = true;
+            TraceLog(LOG_INFO, "¡Llave recogida!");
+        }
+    }
+}
+
+// Verifica si el jugador llegó a la plataforma de victoria con la llave
 bool level_check_win(Level* lvl, Vector2 playerPos) {
-    return CheckCollisionCircles(playerPos, 15, lvl->dkPosition, 25);
+    // PRIMERO debe tener la llave
+    if (!lvl->hasKey) {
+        return false;
+    }
+    
+    // SEGUNDO debe estar físicamente sobre la miniplataforma (con los pies tocándola)
+    Rectangle playerRect = (Rectangle){ 
+        playerPos.x - 15, 
+        playerPos.y - 15, 
+        30, 
+        30 
+    };
+    
+    // Pies del jugador
+    float feetY = playerRect.y + playerRect.height;
+    
+    // Verificar que esté directamente sobre la miniplataforma
+    // Más estricto: los pies deben estar exactamente sobre la superficie
+    if (playerRect.x + playerRect.width > lvl->winPlatform.x &&
+        playerRect.x < lvl->winPlatform.x + lvl->winPlatform.width) {
+        // Tolerancia muy pequeña para detectar que está parado (no flotando cerca)
+        if (feetY >= lvl->winPlatform.y - 1.0f && feetY <= lvl->winPlatform.y + 2.0f) {
+            // Además verificar que está lo suficientemente por encima de la plataforma
+            // (no debajo ni pasando volando)
+            if (playerPos.y < lvl->winPlatform.y) {
+                return true;
+            }
+        }
+    }
+    
+    return false;
 }

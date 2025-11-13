@@ -13,7 +13,7 @@
 #define DKJ_MSG_BYE             "BYE\n"
 
 // ============ DIMENSIONES DEL MUNDO ============
-#define DKJ_LIANAS       6
+#define DKJ_LIANAS       7  // 6 lianas principales + 1 mini liana para la llave
 #define DKJ_HEIGHT_MAX   12
 
 // ============ TAMAÑOS DE ENTIDADES ============

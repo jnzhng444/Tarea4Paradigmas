@@ -34,6 +34,8 @@ final class Level {
         platforms.add(new Platform(Float.valueOf(500), Float.valueOf(145), Float.valueOf(170), Float.valueOf(15)));     // nivel 4
 
         platforms.add(new Platform(Float.valueOf(40), Float.valueOf(130), Float.valueOf(500), Float.valueOf(15)));     // nivel 5
+        
+        platforms.add(new Platform(Float.valueOf(150), Float.valueOf(50), Float.valueOf(50), Float.valueOf(15)));     // Mini plataforma de victoria
 
 
         // Lianas personalizables - Formato: (x, topY, bottomY)
@@ -62,6 +64,10 @@ final class Level {
         // Liana 6 (x=700)
         lianaSlots.add(new LianaSlot(new LianaId("6"), new Liana(Float.valueOf(700.0f), Float.valueOf(80.0f), Float.valueOf(520.0f))));
         idToIndex.put("6", Integer.valueOf(5));
+        
+        // Liana 7 - Mini liana para acceder a la llave y plataforma de victoria (x=310)
+        lianaSlots.add(new LianaSlot(new LianaId("7"), new Liana(Float.valueOf(220.0f), Float.valueOf(50.0f), Float.valueOf(90.0f))));
+        idToIndex.put("7", Integer.valueOf(6));
     }
 
     List<Platform> platforms() { return platforms; }

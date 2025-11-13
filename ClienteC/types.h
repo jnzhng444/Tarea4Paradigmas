@@ -55,9 +55,13 @@ typedef struct {
 typedef struct {
     Platform platforms[16];
     int platformCount;
-    Liana lianas[6];
+    Liana lianas[7];  // 6 lianas principales + 1 mini liana
     int lianaCount;
     Vector2 dkPosition;
+    Vector2 marioPosition;
+    Vector2 keyPosition;
+    Rectangle winPlatform;  // Miniplataforma arriba de Mario
+    bool hasKey;  // Si el jugador ya recogió la llave
 } Level;
 
 // ============ MUNDO (snapshot del servidor) ============

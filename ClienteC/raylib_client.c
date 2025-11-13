@@ -18,6 +18,7 @@ void level_draw_debug(Level* lvl);
 void level_set_debug(bool enabled);
 bool level_check_ground(Level* lvl, Vector2 pos, float width, float height);
 bool level_can_grab_liana(Level* lvl, Vector2 pos, int* outIndex);
+void level_check_key(Level* lvl, Vector2 playerPos);
 bool level_check_win(Level* lvl, Vector2 playerPos);
 
 // ============ SPRITES GLOBALES (visibles para level.c) ============
@@ -26,6 +27,8 @@ Texture2D g_red_croc_sprite = {0};
 Texture2D g_blue_croc_sprite = {0};
 Texture2D g_fruit_sprite = {0};
 Texture2D g_dk_sprite = {0};
+Texture2D g_mario_sprite = {0};
+Texture2D g_key_sprite = {0};
 
 // ============ ESTADO GLOBAL ============
 static World g_world = {0};
@@ -511,6 +514,20 @@ static void load_sprites(void) {
                g_dk_sprite = LoadTextureFromImage(img); UnloadImage(img);
                TraceLog(LOG_WARNING, "Sprite DK no encontrado, usando procedural"); }
 
+    const char* mario_paths[] = { "assets/mario.png", "output/assets/mario.png", "../output/assets/mario.png" };
+    ok = false; for (int i=0;i<(int)(sizeof(mario_paths)/sizeof(mario_paths[0]));++i)
+        if (load_texture_cropped(&g_mario_sprite, mario_paths[i], "Mario")) { ok=true; break; }
+    if (!ok) { Image img = GenImageColor(32,32,BLANK); ImageDrawRectangle(&img,8,8,16,24,RED);
+               g_mario_sprite = LoadTextureFromImage(img); UnloadImage(img);
+               TraceLog(LOG_WARNING, "Sprite Mario no encontrado, usando procedural"); }
+
+    const char* key_paths[] = { "assets/safekey.png", "output/assets/safekey.png", "../output/assets/safekey.png" };
+    ok = false; for (int i=0;i<(int)(sizeof(key_paths)/sizeof(key_paths[0]));++i)
+        if (load_texture_cropped(&g_key_sprite, key_paths[i], "Safe Key")) { ok=true; break; }
+    if (!ok) { Image img = GenImageColor(24,16,BLANK); ImageDrawRectangle(&img,4,4,16,8,GOLD);
+               g_key_sprite = LoadTextureFromImage(img); UnloadImage(img);
+               TraceLog(LOG_WARNING, "Sprite safekey no encontrado, usando procedural"); }
+
     TraceLog(LOG_INFO, "Carga de sprites completada");
 }
 
@@ -520,6 +537,8 @@ static void unload_sprites(void) {
     if (g_blue_croc_sprite.id) UnloadTexture(g_blue_croc_sprite);
     if (g_fruit_sprite.id) UnloadTexture(g_fruit_sprite);
     if (g_dk_sprite.id) UnloadTexture(g_dk_sprite);
+    if (g_mario_sprite.id) UnloadTexture(g_mario_sprite);
+    if (g_key_sprite.id) UnloadTexture(g_key_sprite);
 }
 
 // ====== RENDER ======
@@ -752,9 +771,13 @@ int main(void) {
         unlock_world();
 
         if (havePlayer && !won) {
+            // Verificar si recoge la llave
+            level_check_key(&g_level, myPos);
+            
+            // Verificar victoria (requiere llave y estar en miniplataforma)
             if (level_check_win(&g_level, myPos)) {
                 won = true;
-                TraceLog(LOG_INFO, "Victoria!");
+                TraceLog(LOG_INFO, "¡Victoria! ¡Has rescatado a Mario!");
             }
         }
 
