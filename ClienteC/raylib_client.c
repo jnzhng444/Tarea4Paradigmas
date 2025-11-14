@@ -29,6 +29,9 @@ Texture2D g_fruit_sprites[3] = {0};  // 0=bananas, 1=oranges, 2=strawberry
 Texture2D g_dk_sprite = {0};
 Texture2D g_mario_sprite = {0};
 Texture2D g_key_sprite = {0};
+Texture2D g_platform_sprite = {0};
+Texture2D g_downplatform_sprite = {0};
+Texture2D g_liana_sprite = {0};
 
 // ============ ESTADO GLOBAL ============
 static World g_world = {0};
@@ -680,6 +683,27 @@ static void load_sprites(void) {
     if (!ok) { Image img = GenImageColor(24,16,BLANK); ImageDrawRectangle(&img,4,4,16,8,GOLD);
                g_key_sprite = LoadTextureFromImage(img); UnloadImage(img);
                TraceLog(LOG_WARNING, "Sprite safekey no encontrado, usando procedural"); }
+    
+    const char* platform_paths[] = { "assets/platform.png", "output/assets/platform.png", "../output/assets/platform.png" };
+    ok = false; for (int i=0;i<(int)(sizeof(platform_paths)/sizeof(platform_paths[0]));++i)
+        if (load_texture_cropped(&g_platform_sprite, platform_paths[i], "Platform")) { ok=true; break; }
+    if (!ok) { Image img = GenImageColor(32,16,BLANK); ImageDrawRectangle(&img,0,0,32,16,(Color){200,60,60,255});
+               g_platform_sprite = LoadTextureFromImage(img); UnloadImage(img);
+               TraceLog(LOG_WARNING, "Sprite platform no encontrado, usando procedural"); }
+    
+    const char* downplatform_paths[] = { "assets/downplatform.png", "output/assets/downplatform.png", "../output/assets/downplatform.png" };
+    ok = false; for (int i=0;i<(int)(sizeof(downplatform_paths)/sizeof(downplatform_paths[0]));++i)
+        if (load_texture_cropped(&g_downplatform_sprite, downplatform_paths[i], "Down Platform")) { ok=true; break; }
+    if (!ok) { Image img = GenImageColor(32,16,BLANK); ImageDrawRectangle(&img,0,0,32,16,(Color){160,80,40,255});
+               g_downplatform_sprite = LoadTextureFromImage(img); UnloadImage(img);
+               TraceLog(LOG_WARNING, "Sprite downplatform no encontrado, usando procedural"); }
+    
+    const char* liana_paths[] = { "assets/liana.png", "output/assets/liana.png", "../output/assets/liana.png" };
+    ok = false; for (int i=0;i<(int)(sizeof(liana_paths)/sizeof(liana_paths[0]));++i)
+        if (load_texture_cropped(&g_liana_sprite, liana_paths[i], "Liana")) { ok=true; break; }
+    if (!ok) { Image img = GenImageColor(4,16,BLANK); ImageDrawRectangle(&img,0,0,4,16,(Color){139,90,43,255});
+               g_liana_sprite = LoadTextureFromImage(img); UnloadImage(img);
+               TraceLog(LOG_WARNING, "Sprite liana no encontrado, usando procedural"); }
 
     TraceLog(LOG_INFO, "Carga de sprites completada");
 }
@@ -694,6 +718,9 @@ static void unload_sprites(void) {
     if (g_dk_sprite.id) UnloadTexture(g_dk_sprite);
     if (g_mario_sprite.id) UnloadTexture(g_mario_sprite);
     if (g_key_sprite.id) UnloadTexture(g_key_sprite);
+    if (g_platform_sprite.id) UnloadTexture(g_platform_sprite);
+    if (g_downplatform_sprite.id) UnloadTexture(g_downplatform_sprite);
+    if (g_liana_sprite.id) UnloadTexture(g_liana_sprite);
 }
 
 // ====== RENDER ======

@@ -9,6 +9,9 @@
 extern Texture2D g_dk_sprite;
 extern Texture2D g_mario_sprite;
 extern Texture2D g_key_sprite;
+extern Texture2D g_platform_sprite;
+extern Texture2D g_downplatform_sprite;
+extern Texture2D g_liana_sprite;
 
 // ============ DEBUG LOCAL ============
 static bool s_debug = false;
@@ -111,14 +114,64 @@ void level_draw(Level* lvl) {
     // Lianas
     for (int i = 0; i < lvl->lianaCount; i++) {
         Liana* l = &lvl->lianas[i];
-        DrawLineEx((Vector2){l->x, l->topY}, (Vector2){l->x, l->bottomY}, 4.0f, (Color){139, 90, 43, 255});
+        
+        if (g_liana_sprite.width > 0 && g_liana_sprite.height > 0) {
+            // Dibujar liana con textura repetida verticalmente
+            float lianaHeight = l->bottomY - l->topY;
+            float tileHeight = (float)g_liana_sprite.height;
+            float tileWidth = (float)g_liana_sprite.width;
+            
+            int numTilesY = (int)(lianaHeight / tileHeight) + 1;
+            for (int ty = 0; ty < numTilesY; ty++) {
+                float drawY = l->topY + ty * tileHeight;
+                if (drawY >= l->bottomY) break;
+                
+                float clipHeight = tileHeight;
+                if (drawY + clipHeight > l->bottomY) {
+                    clipHeight = l->bottomY - drawY;
+                }
+                
+                Rectangle src = {0, 0, tileWidth, clipHeight};
+                Rectangle dst = {l->x - tileWidth/2, drawY, tileWidth, clipHeight};
+                DrawTexturePro(g_liana_sprite, src, dst, (Vector2){0,0}, 0.0f, WHITE);
+            }
+        } else {
+            // Fallback: dibujar línea si no hay textura
+            DrawLineEx((Vector2){l->x, l->topY}, (Vector2){l->x, l->bottomY}, 4.0f, (Color){139, 90, 43, 255});
+        }
     }
     
     // Plataformas
     for (int i = 0; i < lvl->platformCount; i++) {
         Rectangle r = lvl->platforms[i].rect;
-        DrawRectangleRec(r, (Color){200, 60, 60, 255});
-        DrawRectangleLinesEx(r, 2, (Color){255, 100, 100, 255});
+        
+        // Primeras 4 plataformas (nivel 1 / piso) usan downplatform, las demás usan platform
+        Texture2D platformTex = (i < 4) ? g_downplatform_sprite : g_platform_sprite;
+        
+        if (platformTex.width > 0 && platformTex.height > 0) {
+            // Dibujar plataforma con tiles repetidos
+            float tileWidth = (float)platformTex.width;
+            float tileHeight = (float)platformTex.height;
+            
+            int numTilesX = (int)(r.width / tileWidth) + 1;
+            for (int tx = 0; tx < numTilesX; tx++) {
+                float drawX = r.x + tx * tileWidth;
+                if (drawX >= r.x + r.width) break;
+                
+                float clipWidth = tileWidth;
+                if (drawX + clipWidth > r.x + r.width) {
+                    clipWidth = (r.x + r.width) - drawX;
+                }
+                
+                Rectangle src = {0, 0, clipWidth, tileHeight};
+                Rectangle dst = {drawX, r.y, clipWidth, r.height};
+                DrawTexturePro(platformTex, src, dst, (Vector2){0,0}, 0.0f, WHITE);
+            }
+        } else {
+            // Fallback: dibujar rectángulo si no hay textura
+            DrawRectangleRec(r, (Color){200, 60, 60, 255});
+            DrawRectangleLinesEx(r, 2, (Color){255, 100, 100, 255});
+        }
     }
     
     // DK (meta)
