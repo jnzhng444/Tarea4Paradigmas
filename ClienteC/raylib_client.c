@@ -855,7 +855,7 @@ static void draw_menu_background(void) {
     DrawRectangleGradientV(0, 0, 800, 600, (Color){20, 20, 40, 255}, (Color){10, 10, 20, 255});
     
     // Título del juego
-    const char* title = "DONKEY KONG JR";
+    const char* title = "DONCEY KONG JR";
     int titleSize = 60;
     int titleWidth = MeasureText(title, titleSize);
     
@@ -866,7 +866,7 @@ static void draw_menu_background(void) {
     DrawText(title, (800 - titleWidth) / 2, 80, titleSize, (Color){255, 215, 0, 255});
     
     // Subtítulo
-    const char* subtitle = "Multiplayer Edition";
+    const char* subtitle = "Deluxe Edition";
     int subtitleSize = 20;
     int subtitleWidth = MeasureText(subtitle, subtitleSize);
     DrawText(subtitle, (800 - subtitleWidth) / 2, 160, subtitleSize, (Color){200, 200, 200, 255});
@@ -1076,7 +1076,7 @@ static void draw_world(void) {
 // ============ MAIN ============
 int main(void) {
     SetConfigFlags(FLAG_VSYNC_HINT);
-    InitWindow(800, 600, "Donkey Kong Jr - Raylib");
+    InitWindow(800, 600, "DonCey Kong Jr - Raylib");
     SetTargetFPS(60);
     SetExitKey(0);  // Desactivar ESC como tecla de salida (0 = ninguna tecla)
 

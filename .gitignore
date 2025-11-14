@@ -1,0 +1,46 @@
+# Archivos compilados de Java
+*.class
+
+# Archivos de paquetes
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# Log files
+*.log
+
+# IDEs
+.vscode/
+.idea/
+*.iml
+*.iws
+*.ipr
+.project
+.classpath
+.settings/
+
+# Build directories
+bin/
+build/
+target/
+out/
+
+# Archivos temporales
+*.tmp
+*.bak
+*.swp
+*~
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Archivos de output del cliente C
+ClienteC/output/*.exe
+ClienteC/output/*.o
+*.o
+*.exe

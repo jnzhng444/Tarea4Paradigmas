@@ -5,6 +5,13 @@
         "type": "java",
         "name": "ServerMain",
         "request": "launch",
+        "mainClass": "com.dkj.main.ServerMain",
+        "projectName": "Tarea4Paradigmas_664b056e"
+    },
+    {
+        "type": "java",
+        "name": "ServerMain",
+        "request": "launch",
         "mainClass": "ServerMain",
         "projectName": "Tarea4Paradigmas_664b056e"
     },
