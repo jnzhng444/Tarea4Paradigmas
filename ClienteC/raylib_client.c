@@ -495,7 +495,17 @@ static void on_net_message(const char* line) {
             TraceLog(LOG_ERROR, "Server error: %s", line);
             
             // Mostrar mensaje amigable según el error
-            if (strstr(line, "404") || strstr(line, "not found")) {
+            if (strstr(line, "409") && strstr(line, "Players full")) {
+                // Servidor lleno - volver al menú principal
+                snprintf(g_game_state.error_message, sizeof(g_game_state.error_message),
+                         "Servidor lleno - Maximo 2 jugadores simultaneos");
+                TraceLog(LOG_WARNING, "[PLAYER] %s", g_game_state.error_message);
+                g_game_state.error_message_until = GetTime() + 5.0;
+                g_connected=false;
+                net_disconnect();
+                g_game_state.mode = MODE_MENU;
+                return;
+            } else if (strstr(line, "404") || strstr(line, "not found")) {
                 snprintf(g_game_state.error_message, sizeof(g_game_state.error_message),
                          "El jugador %s no existe o no esta en partida", g_game_state.observe_target);
                 TraceLog(LOG_WARNING, "[OBSERVER] %s", g_game_state.error_message);
@@ -925,6 +935,14 @@ static GameMode draw_and_handle_menu(void) {
     if (draw_button(&exitBtn)) {
         TraceLog(LOG_INFO, "Exit button clicked");
         return MODE_MENU;  // Se manejará en el main
+    }
+    
+    // Mostrar mensaje de error si existe
+    if (g_game_state.error_message[0] != '\0' && GetTime() < g_game_state.error_message_until) {
+        int errSize = 18;
+        int errWidth = MeasureText(g_game_state.error_message, errSize);
+        DrawRectangle((800 - errWidth) / 2 - 10, 200, errWidth + 20, 35, (Color){40, 0, 0, 200});
+        DrawText(g_game_state.error_message, (800 - errWidth) / 2, 208, errSize, (Color){255, 80, 80, 255});
     }
     
     // Instrucciones en la parte inferior
