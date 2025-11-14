@@ -25,7 +25,7 @@ bool level_check_win(Level* lvl, Vector2 playerPos);
 Texture2D g_player_sprite = {0};
 Texture2D g_red_croc_sprite = {0};
 Texture2D g_blue_croc_sprite = {0};
-Texture2D g_fruit_sprite = {0};
+Texture2D g_fruit_sprites[3] = {0};  // 0=bananas, 1=oranges, 2=strawberry
 Texture2D g_dk_sprite = {0};
 Texture2D g_mario_sprite = {0};
 Texture2D g_key_sprite = {0};
@@ -411,6 +411,11 @@ static void parse_fruits_block(const char* start, const char* end, FruitPrev* pr
         f->pos.y = height_to_y(h);
         f->points = pts;
         f->collected = (col != 0);
+        
+        // Asignar tipo de fruta basado en posición (hash simple para consistencia)
+        // Usamos la combinación de liana y altura para determinar el tipo
+        int hash = (l * 13 + h * 7) % 3;
+        f->fruitType = hash;  // 0=bananas, 1=oranges, 2=strawberry
 
         g_world.fruitCount++;
         item = strtok_r(NULL, "|", &saveptr);
@@ -634,13 +639,26 @@ static void load_sprites(void) {
                g_blue_croc_sprite = LoadTextureFromImage(img); UnloadImage(img);
                TraceLog(LOG_WARNING, "Sprite de cocodrilo azul no encontrado, usando procedural"); }
 
-    const char* fruit_paths[] = { "assets/fruit_bananas.png", "output/assets/fruit_bananas.png", "../output/assets/fruit_bananas.png" };
-    ok = false; for (int i=0;i<(int)(sizeof(fruit_paths)/sizeof(fruit_paths[0]));++i)
-        if (load_texture_cropped(&g_fruit_sprite, fruit_paths[i], "Fruta")) { ok=true; break; }
+    // Cargar 3 tipos de frutas
+    const char* fruit_bananas_paths[] = { "assets/fruit_bananas.png", "output/assets/fruit_bananas.png", "../output/assets/fruit_bananas.png" };
+    ok = false; for (int i=0;i<(int)(sizeof(fruit_bananas_paths)/sizeof(fruit_bananas_paths[0]));++i)
+        if (load_texture_cropped(&g_fruit_sprites[0], fruit_bananas_paths[i], "Bananas")) { ok=true; break; }
     if (!ok) { Image img = GenImageColor(16,16,BLANK); ImageDrawCircle(&img,8,8,7,YELLOW);
-               ImageDrawCircle(&img,8,8,5,ORANGE);
-               g_fruit_sprite = LoadTextureFromImage(img); UnloadImage(img);
-               TraceLog(LOG_WARNING, "Sprite de fruta no encontrado, usando procedural"); }
+               g_fruit_sprites[0] = LoadTextureFromImage(img); UnloadImage(img); }
+    
+    const char* fruit_oranges_paths[] = { "assets/fruit_oranges.png", "output/assets/fruit_oranges.png", "../output/assets/fruit_oranges.png" };
+    ok = false; for (int i=0;i<(int)(sizeof(fruit_oranges_paths)/sizeof(fruit_oranges_paths[0]));++i)
+        if (load_texture_cropped(&g_fruit_sprites[1], fruit_oranges_paths[i], "Oranges")) { ok=true; break; }
+    if (!ok) { Image img = GenImageColor(16,16,BLANK); ImageDrawCircle(&img,8,8,7,ORANGE);
+               g_fruit_sprites[1] = LoadTextureFromImage(img); UnloadImage(img); }
+    
+    const char* fruit_strawberry_paths[] = { "assets/fruit_strawberry.png", "output/assets/fruit_strawberry.png", "../output/assets/fruit_strawberry.png" };
+    ok = false; for (int i=0;i<(int)(sizeof(fruit_strawberry_paths)/sizeof(fruit_strawberry_paths[0]));++i)
+        if (load_texture_cropped(&g_fruit_sprites[2], fruit_strawberry_paths[i], "Strawberry")) { ok=true; break; }
+    if (!ok) { Image img = GenImageColor(16,16,BLANK); ImageDrawCircle(&img,8,8,7,RED);
+               g_fruit_sprites[2] = LoadTextureFromImage(img); UnloadImage(img); }
+    
+    if (!ok) TraceLog(LOG_WARNING, "Algunos sprites de fruta no encontrados, usando procedural");
 
     const char* dk_paths[] = { "assets/dk.png", "output/assets/dk.png", "../output/assets/dk.png" };
     ok = false; for (int i=0;i<(int)(sizeof(dk_paths)/sizeof(dk_paths[0]));++i)
@@ -670,7 +688,9 @@ static void unload_sprites(void) {
     if (g_player_sprite.id) UnloadTexture(g_player_sprite);
     if (g_red_croc_sprite.id) UnloadTexture(g_red_croc_sprite);
     if (g_blue_croc_sprite.id) UnloadTexture(g_blue_croc_sprite);
-    if (g_fruit_sprite.id) UnloadTexture(g_fruit_sprite);
+    for (int i = 0; i < 3; i++) {
+        if (g_fruit_sprites[i].id) UnloadTexture(g_fruit_sprites[i]);
+    }
     if (g_dk_sprite.id) UnloadTexture(g_dk_sprite);
     if (g_mario_sprite.id) UnloadTexture(g_mario_sprite);
     if (g_key_sprite.id) UnloadTexture(g_key_sprite);
@@ -1045,12 +1065,17 @@ static void draw_world(void) {
     if (g_debug_draw) level_draw_debug(&g_level);
 
     for (int i=0;i<w.fruitCount;i++) if (!w.fruits[i].collected) {
+        // Seleccionar sprite según el tipo (0=bananas, 1=oranges, 2=strawberry)
+        int type = w.fruits[i].fruitType;
+        if (type < 0 || type > 2) type = 0;  // fallback a bananas
+        Texture2D sprite = g_fruit_sprites[type];
+        
         // Escala para hacer las frutas más grandes
         float scale = 1.8f;
-        float scaled_w = g_fruit_sprite.width * scale;
-        float scaled_h = g_fruit_sprite.height * scale;
+        float scaled_w = sprite.width * scale;
+        float scaled_h = sprite.height * scale;
         
-        Rectangle src = {0, 0, (float)g_fruit_sprite.width, (float)g_fruit_sprite.height};
+        Rectangle src = {0, 0, (float)sprite.width, (float)sprite.height};
         Rectangle dst = {
             w.fruits[i].pos.x - scaled_w / 2,
             w.fruits[i].pos.y - scaled_h / 2,
@@ -1058,7 +1083,7 @@ static void draw_world(void) {
             scaled_h
         };
         
-        DrawTexturePro(g_fruit_sprite, src, dst, (Vector2){0,0}, 0.0f, WHITE);
+        DrawTexturePro(sprite, src, dst, (Vector2){0,0}, 0.0f, WHITE);
     }
     for (int i=0;i<w.blueCount;i++) if (w.blues[i].active) {
         draw_blue_croc(&w.blues[i]);

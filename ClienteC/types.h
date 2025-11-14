@@ -39,6 +39,7 @@ typedef struct {
     Vector2 pos;
     int points;
     bool collected;
+    int fruitType;  // 0=bananas, 1=oranges, 2=strawberry
 } Fruit;
 
 // ============ NIVEL/MAPA ============
