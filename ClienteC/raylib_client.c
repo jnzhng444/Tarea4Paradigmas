@@ -37,6 +37,31 @@ static char g_local_id[64] = "";
 static bool g_connected = false;
 static bool g_hello_done = false;
 
+// ===== MODO DE JUEGO =====
+typedef enum {
+    MODE_MENU = 0,
+    MODE_PLAYER,
+    MODE_OBSERVER
+} GameMode;
+
+typedef struct {
+    GameMode mode;
+    char observe_target[64];
+    bool waiting_observer_selection;
+    char error_message[256];
+    double error_message_until;
+    bool player_disconnected;
+} GameState;
+
+static GameState g_game_state = {
+    .mode = MODE_MENU,
+    .observe_target = "",
+    .waiting_observer_selection = false,
+    .error_message = "",
+    .error_message_until = 0.0,
+    .player_disconnected = false
+};
+
 // ===== DEBUG / AJUSTES VISUALES =====
 static bool  g_debug_draw  = false;
 static float g_hb_scale_x  = 0.99f;
@@ -125,6 +150,7 @@ static void detect_fruit_events(FruitPrev* prev, int prevCount) {
     const float TOL = 2.0f;
     bool seenPrev[32] = {0};
 
+    // Revisar frutas actuales vs anteriores
     for (int i = 0; i < g_world.fruitCount; i++) {
         Fruit cur = g_world.fruits[i];
         int matched = -1;
@@ -137,17 +163,38 @@ static void detect_fruit_events(FruitPrev* prev, int prevCount) {
         }
         if (matched >= 0) {
             seenPrev[matched] = true;
+            // Si cambió de NO recolectada a recolectada = jugador la agarró (+puntos)
             if (!prev[matched].collected && cur.collected) {
-                spawn_points_popup(cur.pos, cur.points);
+                TraceLog(LOG_WARNING, "FRUIT COLLECTED! +%d (YELLOW)", cur.points);
+                spawn_points_popup(cur.pos, cur.points);  // Siempre positivo
             }
         }
     }
 
+    // Frutas que desaparecieron completamente
     for (int j = 0; j < prevCount; j++) {
         if (!prev[j].valid) continue;
-        if (!seenPrev[j]) {
-            if (!prev[j].collected) {
-                spawn_points_popup(prev[j].pos, prev[j].points);
+        if (!seenPrev[j] && !prev[j].collected) {
+            // Desapareció y NO estaba recolectada antes
+            // Verificar si existe una fruta collected=true en esa posición ahora
+            bool foundCollected = false;
+            for (int i = 0; i < g_world.fruitCount; i++) {
+                if (fabsf(g_world.fruits[i].pos.x - prev[j].pos.x) <= TOL &&
+                    fabsf(g_world.fruits[i].pos.y - prev[j].pos.y) <= TOL &&
+                    g_world.fruits[i].collected) {
+                    foundCollected = true;
+                    break;
+                }
+            }
+            
+            if (foundCollected) {
+                // La fruta sigue ahí pero collected=true = jugador la agarró
+                TraceLog(LOG_WARNING, "🍌 FRUIT COLLECTED (case 2)! +%d (YELLOW)", prev[j].points);
+                spawn_points_popup(prev[j].pos, prev[j].points);  // Positivo
+            } else {
+                // Realmente desapareció = borrada por admin
+                TraceLog(LOG_WARNING, "❌ FRUIT DELETED! -%d (RED)", prev[j].points);
+                spawn_points_popup(prev[j].pos, -prev[j].points);  // Negativo
             }
         }
     }
@@ -161,9 +208,11 @@ static void parse_players_block(const char* start, const char* end) {
     if (len >= sizeof(buf)) len = sizeof(buf)-1;
     memcpy(buf, start, len); buf[len] = '\0';
 
+    g_world.playerCount = 0;  // Resetear contador
+    
     char* saveptr = NULL;
     char* item = strtok_r(buf, "|", &saveptr);
-    while (item) {
+    while (item && g_world.playerCount < 2) {
         char idbuf[64] = {0};
         const char* id_ptr = strstr(item, "id=");
         if (id_ptr) {
@@ -172,10 +221,19 @@ static void parse_players_block(const char* start, const char* end) {
             idbuf[i] = '\0';
         }
 
-        if (idbuf[0] && g_local_id[0] && strcmp(idbuf, g_local_id)==0) {
-            PlayerState* p = &g_world.players[0];
-            bool was_initialized = (g_world.playerCount > 0);
-            bool prev_facing = was_initialized ? p->facingRight : true;
+        // En modo OBSERVER, mostrar todos los jugadores
+        // En modo PLAYER, solo mostrar el jugador local
+        bool should_parse = false;
+        if (g_game_state.mode == MODE_OBSERVER) {
+            should_parse = (idbuf[0] != '\0');  // Mostrar cualquier jugador
+        } else {
+            should_parse = (idbuf[0] && g_local_id[0] && strcmp(idbuf, g_local_id)==0);
+        }
+
+        if (should_parse) {
+            PlayerState* p = &g_world.players[g_world.playerCount];
+            bool was_initialized = false;
+            bool prev_facing = true;
             
             memset(p, 0, sizeof(*p));
             strncpy(p->id, idbuf, sizeof(p->id)-1);
@@ -215,8 +273,12 @@ static void parse_players_block(const char* start, const char* end) {
             }
             g_last_player_x = new_x;
 
-            g_world.playerCount = 1;
-            break;
+            g_world.playerCount++;
+            
+            // En modo PLAYER, solo queremos nuestro jugador
+            if (g_game_state.mode == MODE_PLAYER) {
+                break;
+            }
         }
         item = strtok_r(NULL, "|", &saveptr);
     }
@@ -374,7 +436,7 @@ static void parse_state_line(const char* line) {
     g_world.redCount    = 0;
 
     const char* pStart = strstr(line, "players=[");
-    if (pStart && g_local_id[0]) {
+    if (pStart) {
         pStart += 9;
         const char* pEnd = strchr(pStart, ']');
         if (pEnd) parse_players_block(pStart, pEnd);
@@ -421,16 +483,68 @@ static void on_net_message(const char* line) {
             size_t L = 0; while (p[L] && p[L]!='\r' && p[L]!='\n' && L<sizeof(g_local_id)-1) L++;
             memcpy(g_local_id, p, L); g_local_id[L]='\0';
             g_hello_done = true; g_connected = true;
-            TraceLog(LOG_INFO, "Connected as: %s", g_local_id);
+            
+            if (g_game_state.mode == MODE_OBSERVER) {
+                TraceLog(LOG_INFO, "Connected as SPECTATOR observing: %s", g_game_state.observe_target);
+            } else {
+                TraceLog(LOG_INFO, "Connected as PLAYER: %s", g_local_id);
+            }
             return;
         }
-        if (strncmp(line, "ERR", 3) == 0) { TraceLog(LOG_ERROR, "Server error: %s", line); g_connected=false; return; }
+        if (strncmp(line, "ERR", 3) == 0) { 
+            TraceLog(LOG_ERROR, "Server error: %s", line);
+            
+            // Mostrar mensaje amigable según el error
+            if (strstr(line, "404") || strstr(line, "not found")) {
+                snprintf(g_game_state.error_message, sizeof(g_game_state.error_message),
+                         "El jugador %s no existe o no esta en partida", g_game_state.observe_target);
+                TraceLog(LOG_WARNING, "[OBSERVER] %s", g_game_state.error_message);
+            } else if (strstr(line, "full") || strstr(line, "403")) {
+                snprintf(g_game_state.error_message, sizeof(g_game_state.error_message),
+                         "La sala del jugador %s ya tiene el maximo de observadores (2)", g_game_state.observe_target);
+                TraceLog(LOG_WARNING, "[OBSERVER] %s", g_game_state.error_message);
+            } else {
+                snprintf(g_game_state.error_message, sizeof(g_game_state.error_message),
+                         "Error al conectar: %s", line);
+            }
+            
+            g_game_state.error_message_until = GetTime() + 5.0;  // Mostrar por 5 segundos
+            g_connected=false;
+            net_disconnect();
+            // NO volver al menú, quedarse en pantalla de selección para mostrar el error
+            g_game_state.waiting_observer_selection = true;
+            return; 
+        }
     }
     if      (strncmp(line, "STATE ", 6)==0) parse_state_line(line);
     else if (strncmp(line, "PONG",  4)==0) TraceLog(LOG_DEBUG, "PONG received");
     else if (strncmp(line, "ACK",   3)==0) TraceLog(LOG_DEBUG, "ACK: %s", line);
+    else if (strncmp(line, "SCORE", 5)==0) TraceLog(LOG_DEBUG, "Score update: %s", line);
+    else if (strncmp(line, "LEVEL", 5)==0) TraceLog(LOG_INFO, "Level change: %s", line);
+    else if (strncmp(line, "DEAD", 4)==0) {
+        TraceLog(LOG_INFO, "Player died: %s", line);
+        // Resetear la llave cuando el jugador muere
+        g_level.hasKey = false;
+        g_respawn_flash_until = GetTime() + 0.35;
+    }
+    else if (strncmp(line, "PLAYER_DISCONNECTED", 19)==0) {
+        TraceLog(LOG_WARNING, "Observed player disconnected");
+        g_game_state.player_disconnected = true;
+        g_connected = false;
+    }
 }
-static void on_net_disconnect(void) { TraceLog(LOG_WARNING, "Disconnected from server"); g_connected=false; }
+static void on_net_disconnect(void) { 
+    TraceLog(LOG_WARNING, "Disconnected from server"); 
+    g_connected=false;
+    
+    // Si estabas observando, marcar que el jugador se desconectó
+    if (g_game_state.mode == MODE_OBSERVER) {
+        g_game_state.player_disconnected = true;
+        TraceLog(LOG_WARNING, "Player %s disconnected while observing", g_game_state.observe_target);
+    } else {
+        g_game_state.mode = MODE_MENU;  // Volver al menú al desconectarse
+    }
+}
 
 // ============ INPUT (REPEAT) ============
 static double g_key_hold_time[5] = {0};
@@ -660,12 +774,13 @@ static void draw_popups(void) {
         unsigned char alpha = (unsigned char)(255 * (1.0f - k));
 
         char txt[32];
-        snprintf(txt, sizeof(txt), "+%d", g_popups[i].points);
+        snprintf(txt, sizeof(txt), "%+d", g_popups[i].points);  // %+d muestra + o - según el signo
+        Color textColor = (g_popups[i].points >= 0) ? (Color){255, 255, 0, alpha} : (Color){255, 50, 50, alpha};
         DrawText(txt,
                  (int)(g_popups[i].pos.x - MeasureText(txt, 20)/2),
                  (int)(g_popups[i].pos.y - 40 + yOffset),
                  20,
-                 (Color){255, 255, 0, alpha});
+                 textColor);
     }
 }
 
@@ -686,7 +801,22 @@ static void draw_hud(void) {
         DrawText(hud, 10, 570, 16, LIME);
     }
 
-    if (!g_connected) { DrawRectangle(0,570,800,30,(Color){150,0,0,200}); DrawText("DESCONECTADO", 300, 575, 20, WHITE); }
+    // Mensaje de desconexión
+    if (!g_connected) { 
+        DrawRectangle(0,570,800,30,(Color){150,0,0,200}); 
+        DrawText("DESCONECTADO", 300, 575, 20, WHITE); 
+    }
+    
+    // Mensaje especial cuando el jugador observado se desconecta
+    if (g_game_state.player_disconnected && g_game_state.mode == MODE_OBSERVER) {
+        DrawRectangle(0, 0, 800, 600, (Color){0, 0, 0, 180});
+        const char* msg1 = "Player disconnected";
+        const char* msg2 = "Press ESC to return to menu";
+        int w1 = MeasureText(msg1, 40);
+        int w2 = MeasureText(msg2, 20);
+        DrawText(msg1, (800 - w1) / 2, 250, 40, RED);
+        DrawText(msg2, (800 - w2) / 2, 320, 20, YELLOW);
+    }
 }
 
 static void draw_debug_hud(void) {
@@ -699,6 +829,195 @@ static void draw_debug_hud(void) {
     DrawText(buf, 16, 78, 14, LIGHTGRAY);
     snprintf(buf, sizeof(buf), "FEET_OFFSET: %.2f  (F5/F6 -/+)", g_feet_offset);
     DrawText(buf, 16, 94, 14, LIGHTGRAY);
+}
+
+// ============ MENÚ PRINCIPAL ============
+typedef struct {
+    Rectangle bounds;
+    const char* text;
+    Color color;
+    Color hoverColor;
+    bool hovered;
+} MenuButton;
+
+static void draw_menu_background(void) {
+    // Fondo degradado
+    DrawRectangleGradientV(0, 0, 800, 600, (Color){20, 20, 40, 255}, (Color){10, 10, 20, 255});
+    
+    // Título del juego
+    const char* title = "DONKEY KONG JR";
+    int titleSize = 60;
+    int titleWidth = MeasureText(title, titleSize);
+    
+    // Sombra del título
+    DrawText(title, (800 - titleWidth) / 2 + 3, 80 + 3, titleSize, (Color){0, 0, 0, 180});
+    
+    // Título con efecto de color
+    DrawText(title, (800 - titleWidth) / 2, 80, titleSize, (Color){255, 215, 0, 255});
+    
+    // Subtítulo
+    const char* subtitle = "Multiplayer Edition";
+    int subtitleSize = 20;
+    int subtitleWidth = MeasureText(subtitle, subtitleSize);
+    DrawText(subtitle, (800 - subtitleWidth) / 2, 160, subtitleSize, (Color){200, 200, 200, 255});
+}
+
+static bool draw_button(MenuButton* btn) {
+    Vector2 mousePos = GetMousePosition();
+    btn->hovered = CheckCollisionPointRec(mousePos, btn->bounds);
+    
+    Color currentColor = btn->hovered ? btn->hoverColor : btn->color;
+    
+    // Dibujar botón con efecto hover
+    DrawRectangleRounded(btn->bounds, 0.3f, 10, currentColor);
+    
+    // Borde
+    Color borderColor = btn->hovered ? (Color){255, 255, 255, 255} : (Color){150, 150, 150, 255};
+    DrawRectangleRoundedLines(btn->bounds, 0.3f, 10, borderColor);
+    
+    // Texto centrado
+    int textWidth = MeasureText(btn->text, 30);
+    int textX = (int)(btn->bounds.x + (btn->bounds.width - textWidth) / 2);
+    int textY = (int)(btn->bounds.y + (btn->bounds.height - 30) / 2);
+    
+    DrawText(btn->text, textX, textY, 30, WHITE);
+    
+    // Retornar true si fue clickeado
+    return btn->hovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
+}
+
+static GameMode draw_and_handle_menu(void) {
+    draw_menu_background();
+    
+    // Crear botones
+    MenuButton playBtn = {
+        .bounds = (Rectangle){250, 250, 300, 60},
+        .text = "PLAY",
+        .color = (Color){34, 139, 34, 255},
+        .hoverColor = (Color){50, 205, 50, 255}
+    };
+    
+    MenuButton observerBtn = {
+        .bounds = (Rectangle){250, 330, 300, 60},
+        .text = "OBSERVER",
+        .color = (Color){30, 144, 255, 255},
+        .hoverColor = (Color){65, 105, 225, 255}
+    };
+    
+    MenuButton exitBtn = {
+        .bounds = (Rectangle){250, 410, 300, 60},
+        .text = "EXIT",
+        .color = (Color){178, 34, 34, 255},
+        .hoverColor = (Color){220, 20, 60, 255}
+    };
+    
+    // Dibujar y manejar clicks
+    if (draw_button(&playBtn)) {
+        TraceLog(LOG_INFO, "Play button clicked");
+        return MODE_PLAYER;
+    }
+    
+    if (draw_button(&observerBtn)) {
+        TraceLog(LOG_INFO, "Observer button clicked");
+        return MODE_OBSERVER;
+    }
+    
+    if (draw_button(&exitBtn)) {
+        TraceLog(LOG_INFO, "Exit button clicked");
+        return MODE_MENU;  // Se manejará en el main
+    }
+    
+    // Instrucciones en la parte inferior
+    const char* instructions = "Use mouse to select an option";
+    int instrWidth = MeasureText(instructions, 16);
+    DrawText(instructions, (800 - instrWidth) / 2, 520, 16, (Color){150, 150, 150, 255});
+    
+    return MODE_MENU;
+}
+
+// ============ PANTALLA DE SELECCIÓN DE JUGADOR A OBSERVAR ============
+typedef enum {
+    OBSERVER_NONE = 0,
+    OBSERVER_P1,
+    OBSERVER_P2,
+    OBSERVER_BACK
+} ObserverSelection;
+
+static ObserverSelection draw_observer_selection(void) {
+    draw_menu_background();
+    
+    // Título
+    const char* title = "Select Player to Observe";
+    int titleSize = 30;
+    int titleWidth = MeasureText(title, titleSize);
+    DrawText(title, (800 - titleWidth) / 2, 180, titleSize, WHITE);
+    
+    // Información adicional
+    const char* info = "Choose which player's game you want to watch";
+    int infoSize = 16;
+    int infoWidth = MeasureText(info, infoSize);
+    DrawText(info, (800 - infoWidth) / 2, 230, infoSize, LIGHTGRAY);
+    
+    // Mostrar mensaje de error si existe
+    if (g_game_state.error_message[0] != '\0' && GetTime() < g_game_state.error_message_until) {
+        int errSize = 18;
+        int errWidth = MeasureText(g_game_state.error_message, errSize);
+        DrawRectangle((800 - errWidth) / 2 - 10, 250, errWidth + 20, 35, (Color){40, 0, 0, 200});
+        DrawText(g_game_state.error_message, (800 - errWidth) / 2, 258, errSize, (Color){255, 80, 80, 255});
+    }
+    
+    // Botones para seleccionar jugador
+    MenuButton p1Btn = {
+        .bounds = (Rectangle){200, 280, 180, 60},
+        .text = "Player 1",
+        .color = (Color){30, 144, 255, 255},
+        .hoverColor = (Color){65, 105, 225, 255}
+    };
+    
+    MenuButton p2Btn = {
+        .bounds = (Rectangle){420, 280, 180, 60},
+        .text = "Player 2",
+        .color = (Color){30, 144, 255, 255},
+        .hoverColor = (Color){65, 105, 225, 255}
+    };
+    
+    MenuButton backBtn = {
+        .bounds = (Rectangle){250, 380, 300, 50},
+        .text = "Back to Menu",
+        .color = (Color){100, 100, 100, 255},
+        .hoverColor = (Color){150, 150, 150, 255}
+    };
+    
+    // Debug: Mostrar posición del mouse
+    Vector2 mousePos = GetMousePosition();
+    bool mousePressed = IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
+    
+    if (draw_button(&p1Btn)) {
+        TraceLog(LOG_INFO, "P1 button clicked at (%.0f, %.0f)", mousePos.x, mousePos.y);
+        return OBSERVER_P1;
+    }
+    
+    if (draw_button(&p2Btn)) {
+        TraceLog(LOG_INFO, "P2 button clicked at (%.0f, %.0f)", mousePos.x, mousePos.y);
+        return OBSERVER_P2;
+    }
+    
+    if (draw_button(&backBtn)) {
+        TraceLog(LOG_INFO, "Back button clicked at (%.0f, %.0f)", mousePos.x, mousePos.y);
+        return OBSERVER_BACK;
+    }
+    
+    // Debug log si se presiona el mouse
+    if (mousePressed) {
+        TraceLog(LOG_DEBUG, "Mouse clicked at (%.0f, %.0f) but no button detected", mousePos.x, mousePos.y);
+    }
+    
+    // Instrucciones
+    const char* instructions = "Max 2 observers per player allowed";
+    int instrWidth = MeasureText(instructions, 14);
+    DrawText(instructions, (800 - instrWidth) / 2, 520, 14, YELLOW);
+    
+    return OBSERVER_NONE;
 }
 
 static void draw_world(void) {
@@ -738,28 +1057,114 @@ static void draw_world(void) {
 
 // ============ MAIN ============
 int main(void) {
-    if (net_startup() != 0) { printf("Error: net_startup\n"); return 1; }
-    if (net_connect(DKJ_SERVER_HOST, DKJ_SERVER_PORT) != 0) {
-        printf("Error: No se pudo conectar a %s:%d\n", DKJ_SERVER_HOST, DKJ_SERVER_PORT);
-        net_cleanup(); return 1;
-    }
-    NetCallbacks cb = { .on_message = on_net_message, .on_disconnect = on_net_disconnect };
-    net_start_receiver(cb);
-    net_send(DKJ_MSG_HELLO_PLAYER);
-
     SetConfigFlags(FLAG_VSYNC_HINT);
     InitWindow(800, 600, "Donkey Kong Jr - Raylib");
     SetTargetFPS(60);
+    SetExitKey(0);  // Desactivar ESC como tecla de salida (0 = ninguna tecla)
 
-    SetTraceLogLevel(LOG_INFO);
+    SetTraceLogLevel(LOG_DEBUG);  // Cambiar a DEBUG para ver más detalles
     const char* appDir = GetApplicationDirectory();
     ChangeDirectory(appDir);
     TraceLog(LOG_INFO, "CWD now: %s", GetWorkingDirectory());
 
     load_sprites();
     level_init(&g_level);
+    
+    // Inicializar red
+    if (net_startup() != 0) { 
+        TraceLog(LOG_ERROR, "Error: net_startup"); 
+        CloseWindow();
+        return 1; 
+    }
 
     while (!WindowShouldClose()) {
+        // WindowShouldClose() permite cerrar con X en cualquier momento
+        // ESC solo cambia al menú, no cierra la ventana
+        
+        // Manejar menú principal
+        if (g_game_state.mode == MODE_MENU && !g_game_state.waiting_observer_selection) {
+            BeginDrawing();
+            GameMode selected = draw_and_handle_menu();
+            
+            if (selected == MODE_PLAYER) {
+                // Limpiar mensaje de error
+                g_game_state.error_message[0] = '\0';
+                g_game_state.error_message_until = 0.0;
+                
+                // Conectar como jugador
+                if (net_connect(DKJ_SERVER_HOST, DKJ_SERVER_PORT) == 0) {
+                    NetCallbacks cb = { .on_message = on_net_message, .on_disconnect = on_net_disconnect };
+                    net_start_receiver(cb);
+                    net_send(DKJ_MSG_HELLO_PLAYER);
+                    g_game_state.mode = MODE_PLAYER;
+                    TraceLog(LOG_INFO, "Connecting as PLAYER...");
+                } else {
+                    TraceLog(LOG_ERROR, "Could not connect to server");
+                }
+            } else if (selected == MODE_OBSERVER) {
+                g_game_state.error_message[0] = '\0';
+                g_game_state.error_message_until = 0.0;
+                g_game_state.waiting_observer_selection = true;
+            }
+            
+            // Manejar click en EXIT
+            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+                Vector2 mousePos = GetMousePosition();
+                Rectangle exitBounds = {250, 410, 300, 60};
+                if (CheckCollisionPointRec(mousePos, exitBounds)) {
+                    break;  // Salir del juego
+                }
+            }
+            
+            EndDrawing();
+            continue;
+        }
+        
+        // Manejar selección de jugador a observar
+        if (g_game_state.waiting_observer_selection) {
+            TraceLog(LOG_DEBUG, "In observer selection screen");
+            BeginDrawing();
+            
+            ObserverSelection selection = draw_observer_selection();
+            
+            TraceLog(LOG_DEBUG, "Selection result: %d", selection);
+            
+            if (selection == OBSERVER_P1 || selection == OBSERVER_P2) {
+                // Determinar el índice del jugador (1 o 2)
+                const char* playerIndex = (selection == OBSERVER_P1) ? "1" : "2";
+                strcpy(g_game_state.observe_target, playerIndex);
+                
+                TraceLog(LOG_INFO, "Attempting to connect as observer for Player %s", playerIndex);
+                
+                // Conectar al servidor
+                if (net_connect(DKJ_SERVER_HOST, DKJ_SERVER_PORT) == 0) {
+                    NetCallbacks cb = { .on_message = on_net_message, .on_disconnect = on_net_disconnect };
+                    net_start_receiver(cb);
+                    
+                    char msg[128];
+                    snprintf(msg, sizeof(msg), "HELLO SPECTATOR %s\n", g_game_state.observe_target);
+                    net_send(msg);
+                    
+                    g_game_state.mode = MODE_OBSERVER;
+                    g_game_state.waiting_observer_selection = false;
+                    TraceLog(LOG_INFO, "Connected as SPECTATOR for %s", g_game_state.observe_target);
+                } else {
+                    TraceLog(LOG_ERROR, "Could not connect to server");
+                    g_game_state.waiting_observer_selection = false;
+                }
+            } else if (selection == OBSERVER_BACK) {
+                TraceLog(LOG_INFO, "Going back to main menu");
+                g_game_state.waiting_observer_selection = false;
+                g_game_state.mode = MODE_MENU;
+                g_game_state.error_message[0] = '\0';
+                g_game_state.error_message_until = 0.0;
+            }
+            
+            EndDrawing();
+            continue;
+        }
+        
+        // Input de debug y escape
         if (IsKeyPressed(KEY_F1)) { g_debug_draw = !g_debug_draw; if (level_set_debug) level_set_debug(g_debug_draw); }
         if (g_debug_draw) {
             float step = (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT)) ? 0.05f : 0.02f;
@@ -773,49 +1178,85 @@ int main(void) {
             if (g_hb_scale_y < 0.2f) g_hb_scale_y = 0.2f;
         }
 
-        if (IsKeyPressed(KEY_ESCAPE)) { net_send(DKJ_MSG_BYE); break; }
-
-        if (g_connected && g_hello_done && !g_won) process_input();
-
-        lock_world(); 
-        bool havePlayer = (g_world.playerCount > 0);
-        Vector2 myPos = havePlayer ? g_world.players[0].pos : (Vector2){0,0};
-        int currentScore = havePlayer ? g_world.players[0].score : 0;
-        unlock_world();
-        
-        // Si estábamos en victoria y el score se resetea a 0, significa que el juego se reseteo
-        static int prevScore = 0;
-        if (g_won && prevScore > 0 && currentScore == 0) {
+        // ESC vuelve al menú (solo si estás en juego o observando)
+        if (IsKeyPressed(KEY_ESCAPE) && (g_game_state.mode == MODE_PLAYER || g_game_state.mode == MODE_OBSERVER)) { 
+            if (g_connected) {
+                net_send(DKJ_MSG_BYE); 
+                net_stop_receiver();
+                net_disconnect();
+            }
+            g_connected = false;
+            g_hello_done = false;
+            g_game_state.mode = MODE_MENU;
+            g_game_state.player_disconnected = false;
             g_won = false;
-            TraceLog(LOG_INFO, "Game reset detected, can move again!");
+            continue;
         }
-        prevScore = currentScore;
 
-        if (havePlayer && !g_won) {
-            // Verificar si recoge la llave
-            level_check_key(&g_level, myPos);
+        // Solo procesar input si es jugador (no observador)
+        if (g_game_state.mode == MODE_PLAYER && g_connected && g_hello_done && !g_won) {
+            process_input();
+        }
+
+        // Lógica de juego (solo para jugadores)
+        if (g_game_state.mode == MODE_PLAYER) {
+            lock_world(); 
+            bool havePlayer = (g_world.playerCount > 0);
+            Vector2 myPos = havePlayer ? g_world.players[0].pos : (Vector2){0,0};
+            int currentScore = havePlayer ? g_world.players[0].score : 0;
+            unlock_world();
             
-            // Verificar victoria (requiere llave y estar en miniplataforma)
-            if (level_check_win(&g_level, myPos)) {
-                if (!g_won) {
-                    // Enviar comando WIN al servidor
-                    net_send("WIN\n");
-                    TraceLog(LOG_INFO, "¡Victoria! Nueva vida obtenida y dificultad aumentada!");
-                    
-                    // Resetear la llave para poder volver a jugar
-                    g_level.hasKey = false;
-                    
-                    g_won = true;
-                }
-            } else {
-                // Resetear won cuando el jugador sale de la zona de victoria
+            // Si estábamos en victoria y el score se resetea a 0, significa que el juego se reseteo
+            static int prevScore = 0;
+            if (g_won && prevScore > 0 && currentScore == 0) {
                 g_won = false;
+                TraceLog(LOG_INFO, "Game reset detected, can move again!");
+            }
+            prevScore = currentScore;
+
+            if (havePlayer && !g_won) {
+                // Verificar si recoge la llave
+                level_check_key(&g_level, myPos);
+                
+                // Verificar victoria (requiere llave y estar en miniplataforma)
+                if (level_check_win(&g_level, myPos)) {
+                    if (!g_won) {
+                        // Enviar comando WIN al servidor
+                        net_send("WIN\n");
+                        TraceLog(LOG_INFO, "¡Victoria! Nueva vida obtenida y dificultad aumentada!");
+                        
+                        // Resetear la llave para poder volver a jugar
+                        g_level.hasKey = false;
+                        
+                        g_won = true;
+                    }
+                } else {
+                    // Resetear won cuando el jugador sale de la zona de victoria
+                    g_won = false;
+                }
             }
         }
 
         BeginDrawing();
         ClearBackground((Color){30,30,30,255});
+        
+        // Dibujar el mundo
         draw_world();
+        
+        // Mostrar banner si es observador
+        if (g_game_state.mode == MODE_OBSERVER) {
+            DrawRectangle(0, 0, 800, 40, (Color){0, 0, 0, 200});
+            char banner[128];
+            snprintf(banner, sizeof(banner), "OBSERVER MODE - Watching: %s", g_game_state.observe_target);
+            int bannerWidth = MeasureText(banner, 24);
+            DrawText(banner, (800 - bannerWidth) / 2, 8, 24, YELLOW);
+            
+            // Instrucciones
+            const char* instruction = "Press ESC to return to menu";
+            int instrWidth = MeasureText(instruction, 16);
+            DrawText(instruction, (800 - instrWidth) / 2, 560, 16, LIGHTGRAY);
+        }
+        
         EndDrawing();
     }
 

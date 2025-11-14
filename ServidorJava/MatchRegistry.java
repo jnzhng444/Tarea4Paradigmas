@@ -27,12 +27,41 @@ public final class MatchRegistry {
         rooms.put(pid, room);
     }
 
-    /** Adjunta un writer (cliente) a la sala de ese jugador */
-    public Boolean attachTo(PlayerId target, PrintWriter out){
+    /** Adjunta un writer (espectador) a la sala de ese jugador. Retorna true si se pudo, false si está lleno o no existe. */
+    public Boolean attachSpectatorTo(PlayerId target, PrintWriter out){
         GameRoom r = rooms.get(target);
         if (r == null) return Boolean.FALSE;
-        r.attach(out);
-        return Boolean.TRUE;
+        return r.attachSpectator(out);
+    }
+
+    /** Adjunta un espectador por índice de jugador (1, 2, etc). Retorna true si se pudo. */
+    public Boolean attachSpectatorByIndex(int index, PrintWriter out){
+        if (index < 1 || index > rooms.size()) return Boolean.FALSE;
+        
+        // Obtener el jugador en la posición index-1
+        int i = 0;
+        for (var entry : rooms.entrySet()) {
+            if (i == index - 1) {
+                GameRoom r = entry.getValue();
+                return r.attachSpectator(out);
+            }
+            i++;
+        }
+        return Boolean.FALSE;
+    }
+
+    /** Obtiene el PlayerId del jugador en el índice especificado (1-based) */
+    public PlayerId getPlayerIdByIndex(int index){
+        if (index < 1 || index > rooms.size()) return null;
+        
+        int i = 0;
+        for (var pid : rooms.keySet()) {
+            if (i == index - 1) {
+                return pid;
+            }
+            i++;
+        }
+        return null;
     }
 
     /** Obtiene el Game de la sala de un jugador (para MOVE/ADMIN) */
@@ -47,6 +76,8 @@ public final class MatchRegistry {
         if (ctx.role() == Role.PLAYER && ctx.playerId()!=null){
             GameRoom r = rooms.remove(ctx.playerId());
             if (r != null) {
+                // Notificar a los espectadores que el jugador se desconectó
+                r.notifyPlayerDisconnected();
                 r.detach(ctx.out());
                 r.stop();
             }

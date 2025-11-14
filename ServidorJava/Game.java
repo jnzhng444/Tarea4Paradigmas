@@ -337,6 +337,9 @@ public final class Game {
         
         System.out.println("[DEATH] Player " + playerId.value() + " died! Resetting entities...");
         
+        // Emitir evento de muerte
+        bus.emit(new DeathEvent(playerId));
+        
         // Resetear todas las entidades pero mantener vidas y dificultad
         resetEntitiesOnly();
     }
@@ -411,15 +414,12 @@ public final class Game {
 
         var fruitsTxt = new StringBuilder();
         for (var f : fruits) {
-            // No enviar frutas colectadas
-            if (f.isCollected()) continue;
-            
             var p = f.position();
             if (fruitsTxt.length() > Integer.valueOf(0)) fruitsTxt.append("|");
             fruitsTxt.append("l=").append(p.liana().value())
                     .append(",h=").append(p.height().value())
                     .append(",pts=").append(f.points().value())
-                    .append(",col=").append("0");
+                    .append(",col=").append(f.isCollected() ? "1" : "0");
         }
 
         return "STATE players=[" + playersTxt + "] reds=[" + redsTxt +

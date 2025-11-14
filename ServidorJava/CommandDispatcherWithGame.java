@@ -67,13 +67,36 @@ public final class CommandDispatcherWithGame {
         }
 
         if (role.equals("SPECTATOR")) {
-            if (c.tokens.size() != Integer.valueOf(3)) return err(Integer.valueOf(400),"Usage: HELLO SPECTATOR <PLAYER_ID>");
-            var target = new PlayerId(c.tokens.get(Integer.valueOf(2)));
-            Boolean ok = registry.attachTo(target, c.ctx.out());
-            if (!ok) return err(Integer.valueOf(404), "Player room not found");
+            if (c.tokens.size() != Integer.valueOf(3)) return err(Integer.valueOf(400),"Usage: HELLO SPECTATOR <PLAYER_INDEX>");
+            
+            String indexOrId = c.tokens.get(Integer.valueOf(2));
+            Boolean ok = Boolean.FALSE;
+            PlayerId targetId = null;
+            
+            // Intentar parsear como índice (1, 2, etc)
+            try {
+                int index = Integer.parseInt(indexOrId);
+                targetId = registry.getPlayerIdByIndex(index);
+                if (targetId != null) {
+                    ok = registry.attachSpectatorByIndex(index, c.ctx.out());
+                    if (!ok) {
+                        // El jugador existe pero la sala está llena
+                        return err(Integer.valueOf(403), "Spectator room is full (max 2)");
+                    }
+                } else {
+                    // El jugador no existe
+                    return err(Integer.valueOf(404), "Player " + index + " not found");
+                }
+            } catch (NumberFormatException e) {
+                // Si no es un número, intentar como PlayerId directo
+                targetId = new PlayerId(indexOrId);
+                ok = registry.attachSpectatorTo(targetId, c.ctx.out());
+                if (!ok) return err(Integer.valueOf(409), "Player not found or spectators full");
+            }
+            
             c.ctx.role(Role.SPECTATOR);
             sessions.addSpectator(c.ctx);
-            return "OK SPECTATOR " + target.value();
+            return "OK SPECTATOR " + (targetId != null ? targetId.value() : indexOrId);
         }
 
         return err(Integer.valueOf(422),"Role must be PLAYER or SPECTATOR");

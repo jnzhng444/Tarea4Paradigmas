@@ -5,11 +5,15 @@ import java.util.concurrent.CopyOnWriteArrayList;
 /** Una sala: (bus + game + loop) + lista de conexiones para broadcast. */
 public final class GameRoom {
 
+    private static final Integer MAX_SPECTATORS = Integer.valueOf(2);
+
     private final GameEventBus bus = new GameEventBus();
     private final Game game;
     private final GameLoop loop;
 
-    private final CopyOnWriteArrayList<PrintWriter> outs = new CopyOnWriteArrayList<>();
+    // Separar player de spectators para controlar el límite
+    private PrintWriter playerOut = null;
+    private final CopyOnWriteArrayList<PrintWriter> spectatorOuts = new CopyOnWriteArrayList<>();
 
     public GameRoom(DefaultEntityFactory factory) {
         // ★ el Game se construye con la fábrica explícita (Factory Method visible)
@@ -33,20 +37,58 @@ public final class GameRoom {
 
     public Game game() { return game; }
 
+    /** Adjunta el PrintWriter del jugador principal */
     public void attach(PrintWriter out){
-        if (out != null) outs.add(out);
+        if (out != null && playerOut == null) {
+            playerOut = out;
+        }
+    }
+
+    /** Adjunta un espectador. Retorna true si se pudo, false si se alcanzó el límite. */
+    public Boolean attachSpectator(PrintWriter out){
+        if (out == null) return Boolean.FALSE;
+        if (spectatorOuts.size() >= MAX_SPECTATORS) {
+            return Boolean.FALSE;
+        }
+        spectatorOuts.add(out);
+        return Boolean.TRUE;
     }
 
     public void detach(PrintWriter out){
-        if (out != null) outs.remove(out);
+        if (out == null) return;
+        if (out == playerOut) {
+            playerOut = null;
+        } else {
+            spectatorOuts.remove(out);
+        }
+    }
+
+    /** Retorna el número de espectadores conectados */
+    public Integer spectatorCount() {
+        return spectatorOuts.size();
     }
 
     public void stop() {
         try { loop.stop(); } catch (Exception ignored) {}
     }
 
+    /** Notifica a los espectadores que el jugador se desconectó */
+    public void notifyPlayerDisconnected() {
+        for (var w : spectatorOuts) {
+            try { 
+                w.println("PLAYER_DISCONNECTED"); 
+                w.flush();
+            } catch (Exception ignored) {}
+        }
+    }
+
     private void broadcast(String line){
-        for (var w : outs) {
+        // Enviar al jugador
+        if (playerOut != null) {
+            try { playerOut.println(line); } catch (Exception ignored) {}
+        }
+        // Enviar a espectadores
+        for (var w : spectatorOuts) {
             try { w.println(line); } catch (Exception ignored) {}
         }
     }
