@@ -17,6 +17,8 @@ public final class Game {
     private final Map<PlayerId, Player> players = new HashMap<>();
 
     private Speed speed = new Speed("0.03");
+    private Float baseSpeed = Float.valueOf(0.03f);  // velocidad base
+    private Integer difficultyMultiplier = Integer.valueOf(1);  // multiplicador de dificultad
 
     private Integer ticksSinceLastBlueSpawn = Integer.valueOf(0);
     private static final Integer BLUE_SPAWN_INTERVAL = Integer.valueOf(360); // aprox cada 18 segundos
@@ -124,6 +126,17 @@ public final class Game {
         Float dt = Float.valueOf(0.05f);
 
         physics.update(dt);
+        
+        // Detectar si algún jugador murió y resetear entidades
+        for (var entry : physics.getPlayerPhysics().entrySet()) {
+            var playerId = entry.getKey();
+            var phys = entry.getValue();
+            if (phys.respawned) {
+                handleDeath(playerId);
+                phys.clearRespawned(); // Limpiar flag después de manejar
+                return; // Salir después de resetear para evitar problemas
+            }
+        }
 
         // Actualizar cocodrilos rojos
         for (var r : reds) {
@@ -149,9 +162,7 @@ public final class Game {
             ticksSinceLastBlueSpawn = Integer.valueOf(0);
         }
 
-        // Limpiar frutas
-        fruits.removeIf(f -> f.isCollected());
-        level.fruits().removeIf(f -> f.isCollected());
+        // No limpiar frutas aquí - se regeneran en reset
 
         emitState();
     }
@@ -243,6 +254,111 @@ public final class Game {
         }
     }
 
+    // ===== VICTORIA =====
+    public void handleVictory(PlayerId pid) {
+        Player p = players.get(pid);
+        if (p == null) return;
+        
+        PlayerPhysics phys = physics.getPhysicsFor(pid);
+        if (phys == null) return;
+        
+        System.out.println("════════════════════════════════════════");
+        System.out.println("[VICTORY] Player " + pid.value() + " won!");
+        System.out.println("  Lives before: " + phys.lives);
+        System.out.println("  Difficulty before: " + phys.difficultyLevel);
+        
+        // Dar una vida adicional
+        phys.addLife();
+        
+        // Aumentar dificultad
+        phys.increaseDifficulty();
+        difficultyMultiplier = phys.difficultyLevel;
+        
+        // Calcular nueva velocidad (aumenta 20% por cada nivel)
+        Float newSpeedValue = baseSpeed * (1.0f + (difficultyMultiplier - 1) * 0.2f);
+        speed = new Speed(String.format("%.4f", newSpeedValue));
+        
+        System.out.println("  Lives after: " + phys.lives);
+        System.out.println("  Difficulty after: " + phys.difficultyLevel);
+        System.out.println("  New speed: " + speed.value());
+        System.out.println("════════════════════════════════════════");
+        
+        // Resetear el juego
+        resetGame(phys);
+    }
+    
+    private void resetGame(PlayerPhysics phys) {
+        System.out.println("[RESET] Resetting game with increased difficulty...");
+        
+        // Limpiar cocodrilos
+        reds.clear();
+        blues.clear();
+        level.crocodileReds().clear();
+        level.crocodileBlues().clear();
+        
+        // Resetear frutas existentes en lugar de eliminarlas
+        for (var fruit : fruits) {
+            fruit.setCollected(Boolean.FALSE);
+        }
+        
+        // Resetear posición del jugador
+        phys.x = Float.valueOf(150.0f);
+        phys.y = Float.valueOf(490.0f);
+        phys.vx = Float.valueOf(0);
+        phys.vy = Float.valueOf(0);
+        phys.onGround = Boolean.TRUE;
+        phys.onLiana = Boolean.FALSE;
+        phys.lianaIndex = Integer.valueOf(-1);
+        
+        // Resetear score (empieza desde 0 en el nuevo nivel)
+        phys.resetScore();
+        
+        // Resetear timer de spawn de azules
+        ticksSinceLastBlueSpawn = Integer.valueOf(0);
+        
+        // Spawn inicial de cocodrilos rojos (las frutas ya existen)
+        safeSpawnRed(new LianaId("3"), new Height("6"));
+        
+        System.out.println("[RESET] Game reset complete. New difficulty level: " + difficultyMultiplier);
+        System.out.println("[RESET] Player position: x=" + phys.x + ", y=" + phys.y);
+        System.out.println("[RESET] Player state: onGround=" + phys.onGround + ", onLiana=" + phys.onLiana);
+        
+        emitState();
+    }
+    
+    public void handleDeath(PlayerId playerId) {
+        var phys = physics.getPhysicsFor(playerId);
+        if (phys == null) return;
+        
+        System.out.println("[DEATH] Player " + playerId.value() + " died! Resetting entities...");
+        
+        // Resetear todas las entidades pero mantener vidas y dificultad
+        resetEntitiesOnly();
+    }
+    
+    private void resetEntitiesOnly() {
+        // Limpiar cocodrilos
+        reds.clear();
+        blues.clear();
+        level.crocodileReds().clear();
+        level.crocodileBlues().clear();
+        
+        // Resetear frutas existentes en lugar de eliminarlas
+        for (var fruit : fruits) {
+            fruit.setCollected(Boolean.FALSE);
+        }
+        
+        // Resetear timer de spawn de azules
+        ticksSinceLastBlueSpawn = Integer.valueOf(0);
+        
+        // Spawn inicial de cocodrilos rojos (las frutas ya existen)
+        safeSpawnRed(new LianaId("3"), new Height("6"));
+        
+        System.out.println("[RESET] Entities reset complete. Fruits regenerated.");
+        
+        emitState();
+    }
+    
     // ===== SERIALIZACIÓN =====
     private void emitState(){
         bus.emit(new StateEvent(snapshot()));
@@ -259,7 +375,8 @@ public final class Game {
                     .append(",x=").append(String.format("%.1f", phys.x))
                     .append(",y=").append(String.format("%.1f", phys.y))
                     .append(",onLiana=").append(phys.onLiana ? "1" : "0")
-                    .append(",score=").append(phys.score);
+                    .append(",score=").append(phys.score)
+                    .append(",lives=").append(phys.lives);
         }
 
         var redsTxt = new StringBuilder();
@@ -289,12 +406,15 @@ public final class Game {
 
         var fruitsTxt = new StringBuilder();
         for (var f : fruits) {
+            // No enviar frutas colectadas
+            if (f.isCollected()) continue;
+            
             var p = f.position();
             if (fruitsTxt.length() > Integer.valueOf(0)) fruitsTxt.append("|");
             fruitsTxt.append("l=").append(p.liana().value())
                     .append(",h=").append(p.height().value())
                     .append(",pts=").append(f.points().value())
-                    .append(",col=").append(f.isCollected() ? "1" : "0");
+                    .append(",col=").append("0");
         }
 
         return "STATE players=[" + playersTxt + "] reds=[" + redsTxt +

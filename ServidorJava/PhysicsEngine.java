@@ -16,6 +16,10 @@ final class PhysicsEngine {
     Map<PlayerId, PlayerPhysics> getPlayerPhysics() {
         return playerPhysics;
     }
+    
+    PlayerPhysics getPhysicsFor(PlayerId id) {
+        return playerPhysics.get(id);
+    }
 
     void addPlayer(PlayerId id) {
         playerPhysics.put(id, new PlayerPhysics());
@@ -264,7 +268,10 @@ final class PhysicsEngine {
             // Limites & caida
             if (phys.x < GameRules.MIN_X) phys.x = GameRules.MIN_X;
             if (phys.x > GameRules.MAX_X) phys.x = GameRules.MAX_X;
-            if (phys.y > GameRules.MAX_Y) respawn(phys);
+            if (phys.y > GameRules.MAX_Y) {
+                respawn(phys);
+                phys.markRespawned();
+            }
 
             // COLISIONES CON ENTIDADES
             Rect pr = playerRect(phys.x, phys.y);
@@ -376,6 +383,7 @@ final class PhysicsEngine {
         System.out.println("  Position: x=" + phys.x + ", y=" + phys.y);
         System.out.println("  Velocity: vx=" + phys.vx + ", vy=" + phys.vy);
         System.out.println("  onLiana: " + phys.onLiana + ", onGround: " + phys.onGround);
+        System.out.println("  Score before reset: " + phys.score);
         System.out.println("════════════════════════════════════════");
         
         phys.x = Float.valueOf(150.0f);
@@ -384,6 +392,10 @@ final class PhysicsEngine {
         phys.onGround = Boolean.TRUE;
         phys.onLiana  = Boolean.FALSE;
         phys.lianaIndex = Integer.valueOf(-1);
+        
+        // Resetear score al morir
+        phys.resetScore();
+        System.out.println("[RESPAWN] Score reset to 0");
     }
 
     private static Float heightToPixels(Integer logicalHeight) {

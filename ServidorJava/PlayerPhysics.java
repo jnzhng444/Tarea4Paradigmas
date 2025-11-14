@@ -9,6 +9,8 @@ final class PlayerPhysics {
     // ===== Nuevos campos =====
     Integer score = Integer.valueOf(0);            // puntaje acumulado
     Boolean respawned = Boolean.FALSE; // se marca true al morir; se limpia tras enviar STATE
+    Integer lives = Integer.valueOf(0);            // vidas adicionales ganadas
+    Integer difficultyLevel = Integer.valueOf(1);  // nivel de dificultad (aumenta al ganar)
 
     PlayerPhysics() {
         x = Float.valueOf(150.0f);       // centro horizontal
@@ -31,5 +33,17 @@ final class PlayerPhysics {
 
     void clearRespawned() {
         respawned = Boolean.FALSE;
+    }
+    
+    void resetScore() {
+        score = Integer.valueOf(0);
+    }
+    
+    void addLife() {
+        lives += 1;
+    }
+    
+    void increaseDifficulty() {
+        difficultyLevel += 1;
     }
 }

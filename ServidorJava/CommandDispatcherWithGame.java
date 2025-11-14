@@ -29,6 +29,7 @@ public final class CommandDispatcherWithGame {
         t.put("PING",  this::onPing);
         t.put("HELLO", this::onHello);
         t.put("MOVE",  this::onMove);
+        t.put("WIN",   this::onWin);
         t.put("BYE",   this::onBye);
         t.put("ADMIN", this::onAdmin);
         this.table = Collections.unmodifiableMap(t);
@@ -91,6 +92,17 @@ public final class CommandDispatcherWithGame {
 
         game.enqueueMove(c.ctx.playerId(), dir);
         return "ACK MOVE " + dir.name();
+    }
+
+    private String onWin(Call c) {
+        if (c.ctx.role() != Role.PLAYER || c.ctx.playerId() == null) {
+            return err(Integer.valueOf(403), "Only players can win");
+        }
+        var game = registry.gameOf(c.ctx.playerId());
+        if (game == null) return err(Integer.valueOf(404), "Room not found");
+        
+        game.handleVictory(c.ctx.playerId());
+        return "OK VICTORY";
     }
 
     private String onBye(Call c) {

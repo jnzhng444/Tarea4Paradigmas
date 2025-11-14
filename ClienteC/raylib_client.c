@@ -59,6 +59,7 @@ typedef struct {
 
 #define POPUP_MAX 32
 static PointsPopup g_popups[POPUP_MAX] = {0};
+static bool g_won = false;
 
 static void spawn_points_popup(Vector2 pos, int points) {
     for (int i = 0; i < POPUP_MAX; i++) {
@@ -183,6 +184,7 @@ static void parse_players_block(const char* start, const char* end) {
             const char* y_ptr = strstr(item, "y=");
             const char* liana_ptr = strstr(item, "onLiana=");
             const char* score_ptr = strstr(item, "score=");
+            const char* lives_ptr = strstr(item, "lives=");
             const char* respawn_ptr = strstr(item, "respawned=");
 
             float new_x = 0.0f;
@@ -190,10 +192,13 @@ static void parse_players_block(const char* start, const char* end) {
             if (y_ptr)      p->pos.y = parse_float_loose(y_ptr+2);
             if (liana_ptr)  p->onLiana = (parse_float_loose(liana_ptr+8) > 0.5f);
             if (score_ptr)  p->score = (int)parse_float_loose(score_ptr+6);
+            if (lives_ptr)  p->lives = (int)parse_float_loose(lives_ptr+6);
             if (respawn_ptr) {
                 p->respawned = (parse_float_loose(respawn_ptr+10) > 0.5f);
                 if (p->respawned) {
                     g_respawn_flash_until = GetTime() + 0.35;
+                    // Resetear la llave cuando mueres
+                    g_level.hasKey = false;
                 }
             }
 
@@ -665,11 +670,14 @@ static void draw_popups(void) {
 }
 
 static void draw_hud(void) {
-    // Score arriba a la derecha
+    // Score y vidas arriba a la derecha
     if (g_world.playerCount > 0) {
         PlayerState *p = &g_world.players[0];
         char hud2[128]; snprintf(hud2, sizeof(hud2), "Puntos: %d", p->score);
         DrawText(hud2, 680, 10, 18, YELLOW);
+        
+        char hud3[128]; snprintf(hud3, sizeof(hud3), "Vidas: %d", p->lives);
+        DrawText(hud3, 680, 35, 18, LIME);
     }
 
     // ID abajo a la izquierda
@@ -751,8 +759,6 @@ int main(void) {
     load_sprites();
     level_init(&g_level);
 
-    bool won = false;
-
     while (!WindowShouldClose()) {
         if (IsKeyPressed(KEY_F1)) { g_debug_draw = !g_debug_draw; if (level_set_debug) level_set_debug(g_debug_draw); }
         if (g_debug_draw) {
@@ -769,33 +775,47 @@ int main(void) {
 
         if (IsKeyPressed(KEY_ESCAPE)) { net_send(DKJ_MSG_BYE); break; }
 
-        if (g_connected && g_hello_done && !won) process_input();
+        if (g_connected && g_hello_done && !g_won) process_input();
 
-        lock_world(); bool havePlayer = (g_world.playerCount > 0);
+        lock_world(); 
+        bool havePlayer = (g_world.playerCount > 0);
         Vector2 myPos = havePlayer ? g_world.players[0].pos : (Vector2){0,0};
+        int currentScore = havePlayer ? g_world.players[0].score : 0;
         unlock_world();
+        
+        // Si estábamos en victoria y el score se resetea a 0, significa que el juego se reseteo
+        static int prevScore = 0;
+        if (g_won && prevScore > 0 && currentScore == 0) {
+            g_won = false;
+            TraceLog(LOG_INFO, "Game reset detected, can move again!");
+        }
+        prevScore = currentScore;
 
-        if (havePlayer && !won) {
+        if (havePlayer && !g_won) {
             // Verificar si recoge la llave
             level_check_key(&g_level, myPos);
             
             // Verificar victoria (requiere llave y estar en miniplataforma)
             if (level_check_win(&g_level, myPos)) {
-                won = true;
-                TraceLog(LOG_INFO, "¡Victoria! ¡Has rescatado a Mario!");
+                if (!g_won) {
+                    // Enviar comando WIN al servidor
+                    net_send("WIN\n");
+                    TraceLog(LOG_INFO, "¡Victoria! Nueva vida obtenida y dificultad aumentada!");
+                    
+                    // Resetear la llave para poder volver a jugar
+                    g_level.hasKey = false;
+                    
+                    g_won = true;
+                }
+            } else {
+                // Resetear won cuando el jugador sale de la zona de victoria
+                g_won = false;
             }
         }
 
         BeginDrawing();
         ClearBackground((Color){30,30,30,255});
         draw_world();
-
-        if (won) {
-            DrawRectangle(0,0,800,600,(Color){0,0,0,200});
-            DrawText("VICTORIA!", 250, 250, 60, YELLOW);
-            DrawText("Rescataste a Donkey Kong", 220, 320, 30, WHITE);
-            DrawText("ESC para salir", 290, 370, 20, LIGHTGRAY);
-        }
         EndDrawing();
     }
 
