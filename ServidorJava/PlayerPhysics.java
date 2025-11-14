@@ -43,6 +43,12 @@ final class PlayerPhysics {
         lives += 1;
     }
     
+    void loseLife() {
+        if (lives > 0) {
+            lives -= 1;
+        }
+    }
+    
     void increaseDifficulty() {
         difficultyLevel += 1;
     }

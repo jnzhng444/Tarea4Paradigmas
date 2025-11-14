@@ -47,6 +47,9 @@ public final class Game {
         
         // Spawn 1 fruta en liana 2, altura 8, con 100 puntos
         safeSpawnFruit(new LianaId("2"), new Height("8"), new Points("100"));
+        
+        System.out.println("[SPAWN] Initial entities spawned with speed: " + speed.value());
+        System.out.println("[SPAWN] Difficulty level: " + difficultyMultiplier);
     }
 
     // ===== API ADMIN =====
@@ -157,7 +160,7 @@ public final class Game {
         // SPAWNER de azules (automático cada 18 segundos)
         ticksSinceLastBlueSpawn = ticksSinceLastBlueSpawn + 1;
         if (ticksSinceLastBlueSpawn >= BLUE_SPAWN_INTERVAL) {
-            System.out.println("[GAME] Spawning new blue crocodile (automatic)");
+            System.out.println("[GAME] Spawning new blue crocodile (automatic) with speed: " + speed.value());
             spawnCrocodileBlue(new Height("12"));
             ticksSinceLastBlueSpawn = Integer.valueOf(0);
         }
@@ -320,8 +323,10 @@ public final class Game {
         safeSpawnRed(new LianaId("3"), new Height("6"));
         
         System.out.println("[RESET] Game reset complete. New difficulty level: " + difficultyMultiplier);
+        System.out.println("[RESET] NEW SPEED: " + speed.value() + " (Base: " + baseSpeed + ", Multiplier: 1 + " + (difficultyMultiplier - 1) + " * 0.2)");
         System.out.println("[RESET] Player position: x=" + phys.x + ", y=" + phys.y);
         System.out.println("[RESET] Player state: onGround=" + phys.onGround + ", onLiana=" + phys.onLiana);
+        System.out.println("[RESET] Lives: " + phys.lives);
         
         emitState();
     }

@@ -393,9 +393,13 @@ final class PhysicsEngine {
         phys.onLiana  = Boolean.FALSE;
         phys.lianaIndex = Integer.valueOf(-1);
         
+        // Perder una vida
+        phys.loseLife();
+        
         // Resetear score al morir
         phys.resetScore();
         System.out.println("[RESPAWN] Score reset to 0");
+        System.out.println("[RESPAWN] Lives remaining: " + phys.lives);
     }
 
     private static Float heightToPixels(Integer logicalHeight) {
