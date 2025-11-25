@@ -1,3 +1,23 @@
+/**
+ * @file network.c
+ * @brief Implementacion del modulo de red TCP del cliente
+ * 
+ * Proporciona funciones para comunicacion TCP con el servidor de juego
+ * usando WinSock2. Maneja conexion, envio sincrono y recepcion asincrona
+ * mediante un hilo dedicado que notifica eventos via callbacks.
+ * 
+ * Arquitectura:
+ * - Conexion bloqueante: net_connect() espera hasta conectar o fallar
+ * - Envio sincrono: net_send() envia y retorna inmediatamente
+ * - Recepcion asincrona: Hilo separado (recv_thread) lee continuamente
+ * - Callbacks: Ejecutados en contexto del hilo receptor
+ * 
+ * Thread safety:
+ * - net_send() es thread-safe (llamadas send() de WinSock son atomicas)
+ * - Callbacks se ejecutan serializados en un solo hilo
+ * - g_sock compartido pero solo modificado en hilo principal
+ */
+
 // network.c - Módulo de red SIN Raylib (evita conflictos)
 #define _WIN32_WINNT 0x0601
 #include <winsock2.h>
@@ -9,10 +29,18 @@
 
 #pragma comment(lib, "ws2_32.lib")
 
-// Estado interno
+// ============ ESTADO INTERNO ============
+
+/** Socket TCP global, INVALID_SOCKET si no hay conexion */
 static SOCKET g_sock = INVALID_SOCKET;
+
+/** Flag que indica si el hilo receptor debe continuar ejecutandose */
 static bool g_running = false;
+
+/** Handle del hilo receptor de Windows */
 static HANDLE g_thread = NULL;
+
+/** Callbacks registrados para eventos de red */
 static NetCallbacks g_callbacks = {0};
 
 // ============ FUNCIONES PÚBLICAS ============
@@ -65,8 +93,19 @@ int net_send(const char* line) {
     return send(g_sock, line, (int)strlen(line), 0);
 }
 
-// ============ HILO DE RECEPCIÓN ============
+// ============ HILO DE RECEPCION ============
 
+/**
+ * Recibe una linea completa del socket (hasta \n).
+ * 
+ * Lee byte por byte del socket hasta encontrar newline o llenar el buffer.
+ * Agrega null terminator al final. Bloqueante hasta recibir linea completa.
+ * 
+ * @param s Socket desde donde leer
+ * @param out Buffer donde almacenar la linea recibida
+ * @param maxlen Tamano maximo del buffer (incluyendo null terminator)
+ * @return Numero de bytes recibidos (incluyendo \n), 0 si conexion cerrada, <0 si error
+ */
 static int recv_line(SOCKET s, char* out, int maxlen) {
     int pos = 0;
     while (pos + 1 < maxlen) {
@@ -80,6 +119,21 @@ static int recv_line(SOCKET s, char* out, int maxlen) {
     return pos;
 }
 
+/**
+ * Funcion del hilo receptor de red.
+ * 
+ * Loop infinito que lee lineas del servidor y ejecuta callbacks cuando:
+ * - Se recibe una linea completa: Llama a on_message(line)
+ * - El servidor cierra la conexion: Llama a on_disconnect()
+ * 
+ * El loop termina cuando:
+ * - g_running se pone en false (net_stop_receiver())
+ * - El socket se cierra o hay error de red
+ * - Se detecta desconexion del servidor
+ * 
+ * @param arg Parametro de thread (no utilizado)
+ * @return 0 cuando el thread termina
+ */
 static DWORD WINAPI recv_thread(LPVOID arg) {
     (void)arg;
     

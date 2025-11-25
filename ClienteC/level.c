@@ -1,3 +1,29 @@
+/**
+ * @file level.c
+ * @brief Gestion y renderizado del nivel de Donkey Kong Jr
+ * 
+ * Implementa la inicializacion, renderizado y logica de colisiones del nivel estatico.
+ * El nivel incluye plataformas, lianas, NPCs (DK y Mario), llave y objetivo de victoria.
+ * 
+ * Responsabilidades:
+ * - Inicializar geometria del nivel (plataformas y lianas)
+ * - Renderizar nivel con texturas tileables
+ * - Detectar colisiones con suelo
+ * - Verificar proximidad a lianas
+ * - Detectar recoleccion de llave
+ * - Verificar condicion de victoria
+ * 
+ * Sistema de coordenadas:
+ * - X: Horizontal, 0 a 800 pixeles (tipicamente)
+ * - Y: Vertical, 0 arriba, 600 abajo (tipicamente)
+ * 
+ * Arquitectura de renderizado:
+ * - Texturas tileables para plataformas y lianas
+ * - Clipping para tiles parciales en bordes
+ * - Sprites estaticos para DK, Mario y llave
+ * - Modo debug opcional con hitboxes
+ */
+
 // level.c
 #include "types.h"
 #include "constants.h"
@@ -15,9 +41,40 @@ extern Texture2D g_liana_sprite;
 
 // ============ DEBUG LOCAL ============
 static bool s_debug = false;
+
+/**
+ * Activa o desactiva el modo debug de visualizacion.
+ * 
+ * En modo debug, se dibujan hitboxes y lineas de guia adicionales.
+ * 
+ * @param enabled true para activar debug, false para desactivar
+ */
 void level_set_debug(bool enabled) { s_debug = enabled; }
 
-// Inicializa el nivel estilo Donkey Kong Jr
+/**
+ * Inicializa la geometria y elementos del nivel.
+ * 
+ * Configura todas las plataformas, lianas y posiciones de NPCs del nivel.
+ * Las coordenadas deben coincidir con el servidor (Level.java en ServidorJava)
+ * para garantizar que la fisica sea consistente.
+ * 
+ * Estructura del nivel (de abajo hacia arriba):
+ * - Nivel 1 (piso): 4 plataformas con downplatform texture
+ * - Nivel 2-3: Plataformas intermedias
+ * - Nivel 4-5: Plataformas superiores
+ * - Miniplataforma: Objetivo final arriba de Mario
+ * 
+ * Lianas:
+ * - 6 lianas principales (indices 0-5) con alturas variables
+ * - 1 mini liana (indice 6) para acceder a la llave
+ * 
+ * NPCs:
+ * - DK: Posicionado en plataforma superior
+ * - Mario: Al lado de DK
+ * - Llave: Arriba de miniplataforma
+ * 
+ * @param lvl Puntero a estructura Level a inicializar
+ */
 void level_init(Level* lvl) {
     lvl->platformCount = 0;
     lvl->lianaCount = 0;
@@ -106,7 +163,29 @@ void level_init(Level* lvl) {
     lvl->hasKey = false;
 }
 
-// Dibuja el nivel con Raylib (modo normal)
+/**
+ * Renderiza el nivel completo con texturas.
+ * 
+ * Dibuja todos los elementos visuales del nivel en orden de fondo a primer plano:
+ * 1. Fondo (color solido)
+ * 2. Lianas (con tiling vertical)
+ * 3. Plataformas (con tiling horizontal, dos texturas diferentes)
+ * 4. DK (sprite estatico)
+ * 5. Mario (sprite estatico escalado)
+ * 6. Llave (si no ha sido recolectada)
+ * 7. Miniplataforma de victoria
+ * 
+ * Tiling de texturas:
+ * - Lianas: Repite g_liana_sprite verticalmente
+ * - Plataformas: Usa g_downplatform_sprite para nivel 1 (indices 0-3),
+ *               g_platform_sprite para el resto
+ * - Clipping: Tiles parciales en bordes para ajuste exacto
+ * 
+ * Fallbacks:
+ * - Si no hay textura cargada, usa primitivas de Raylib (rectangulos, circulos)
+ * 
+ * @param lvl Puntero a estructura Level con geometria inicializada
+ */
 void level_draw(Level* lvl) {
     // Fondo (se mantiene por compatibilidad con cliente)
     ClearBackground((Color){15, 15, 22, 255});
@@ -211,7 +290,19 @@ void level_draw(Level* lvl) {
     }
 }
 
-// Overlay de debug del nivel (cuadrícula, marcas, contornos)
+/**
+ * Renderiza overlay de debug sobre el nivel.
+ * 
+ * Dibuja elementos de ayuda visual para desarrollo:
+ * - Cuadricula de 40x40 pixeles
+ * - Contornos de hitboxes de plataformas (amarillo)
+ * - Limites superior/inferior de lianas (verde)
+ * - Radio de victoria alrededor de DK (azul cielo)
+ * 
+ * Solo se renderiza si s_debug está activado via level_set_debug(true).
+ * 
+ * @param lvl Puntero a estructura Level con geometria
+ */
 void level_draw_debug(Level* lvl) {
     if (!s_debug) return;
 
@@ -237,7 +328,24 @@ void level_draw_debug(Level* lvl) {
     DrawCircleLines((int)lvl->dkPosition.x, (int)lvl->dkPosition.y, 25.0f, SKYBLUE);
 }
 
-// Verifica si un jugador está sobre alguna plataforma (pos = CENTRO del hitbox)
+/**
+ * Verifica si el jugador esta sobre alguna plataforma.
+ * 
+ * Detecta colision entre el hitbox del jugador y las plataformas del nivel.
+ * Utiliza tolerancia vertical para permitir aterrizaje suave.
+ * 
+ * Algoritmo:
+ * 1. Construye rectangulo del jugador centrado en pos
+ * 2. Para cada plataforma, verifica proyeccion horizontal
+ * 3. Si hay overlap horizontal, verifica si los pies estan cerca del tope
+ * 4. Tolerancia: -2 a +6 pixeles del tope de la plataforma
+ * 
+ * @param lvl Puntero a estructura Level con plataformas
+ * @param pos Posicion del CENTRO del jugador (pixeles)
+ * @param width Ancho del hitbox del jugador (pixeles)
+ * @param height Alto del hitbox del jugador (pixeles)
+ * @return true si esta sobre una plataforma, false en caso contrario
+ */
 bool level_check_ground(Level* lvl, Vector2 pos, float width, float height) {
     Rectangle playerRect = (Rectangle){ pos.x - width * 0.5f, pos.y - height * 0.5f, width, height };
     
@@ -259,7 +367,17 @@ bool level_check_ground(Level* lvl, Vector2 pos, float width, float height) {
     return false;
 }
 
-// Encuentra la liana más cercana a una posición
+/**
+ * Encuentra el indice de la liana mas cercana a una coordenada X.
+ * 
+ * Busca entre todas las lianas del nivel cual tiene su posicion horizontal
+ * mas cercana a la coordenada X especificada. Util para determinar a que
+ * liana deberia moverse el jugador.
+ * 
+ * @param lvl Puntero a estructura Level con lianas
+ * @param x Coordenada horizontal de referencia (pixeles)
+ * @return Indice de la liana mas cercana (0 a lianaCount-1)
+ */
 int level_find_nearest_liana(Level* lvl, float x) {
     int nearest = 0; float minDist = 999999.0f;
     for (int i = 0; i < lvl->lianaCount; i++) {
@@ -269,7 +387,21 @@ int level_find_nearest_liana(Level* lvl, float x) {
     return nearest;
 }
 
-// Verifica si el jugador puede agarrarse a una liana
+/**
+ * Verifica si el jugador puede agarrarse a alguna liana.
+ * 
+ * Detecta si el jugador esta lo suficientemente cerca de alguna liana
+ * para poder agarrarse. Considera rango horizontal y limites verticales.
+ * 
+ * Criterios:
+ * - Distancia horizontal < 30 pixeles
+ * - Posicion Y entre topY y bottomY de la liana
+ * 
+ * @param lvl Puntero a estructura Level con lianas
+ * @param pos Posicion del jugador (pixeles)
+ * @param outIndex Puntero donde escribir el indice de la liana encontrada (output)
+ * @return true si puede agarrarse (outIndex contendra el indice), false en caso contrario
+ */
 bool level_can_grab_liana(Level* lvl, Vector2 pos, int* outIndex) {
     float grabRange = 30.0f;
     for (int i = 0; i < lvl->lianaCount; i++) {
@@ -281,7 +413,20 @@ bool level_can_grab_liana(Level* lvl, Vector2 pos, int* outIndex) {
     return false;
 }
 
-// Verifica si el jugador recoge la llave
+/**
+ * Verifica y procesa la recoleccion de la llave por el jugador.
+ * 
+ * Detecta colision circular entre el jugador y la llave. Si colisionan
+ * y la llave no ha sido recogida aun, marca lvl->hasKey como true.
+ * 
+ * Colision:
+ * - Radio jugador: 15 pixeles
+ * - Radio llave: 15 pixeles
+ * - Deteccion: CheckCollisionCircles de Raylib
+ * 
+ * @param lvl Puntero a estructura Level (modifica hasKey si se recoge)
+ * @param playerPos Posicion del jugador (pixeles)
+ */
 void level_check_key(Level* lvl, Vector2 playerPos) {
     if (!lvl->hasKey) {
         if (CheckCollisionCircles(playerPos, 15, lvl->keyPosition, 15)) {
@@ -291,7 +436,24 @@ void level_check_key(Level* lvl, Vector2 playerPos) {
     }
 }
 
-// Verifica si el jugador llegó a la plataforma de victoria con la llave
+/**
+ * Verifica si el jugador ha completado el nivel (condicion de victoria).
+ * 
+ * Condiciones para ganar:
+ * 1. El jugador debe tener la llave (lvl->hasKey == true)
+ * 2. Debe estar fisicamente sobre la miniplataforma de victoria
+ * 3. Sus pies deben estar tocando la superficie de la plataforma
+ * 4. Debe estar por encima de la plataforma (no debajo ni atravesandola)
+ * 
+ * Verificacion estricta:
+ * - Overlap horizontal con winPlatform
+ * - Pies del jugador en rango [-1, +2] pixeles del tope de la plataforma
+ * - Posicion Y del jugador < tope de la plataforma
+ * 
+ * @param lvl Puntero a estructura Level con winPlatform y hasKey
+ * @param playerPos Posicion del jugador (pixeles)
+ * @return true si se cumple condicion de victoria, false en caso contrario
+ */
 bool level_check_win(Level* lvl, Vector2 playerPos) {
     // PRIMERO debe tener la llave
     if (!lvl->hasKey) {

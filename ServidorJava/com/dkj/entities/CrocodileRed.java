@@ -7,6 +7,26 @@ import com.dkj.model.Speed;
 
 import java.util.Objects;
 
+/**
+ * Cocodrilo rojo - Enemigo que patrulla verticalmente en lianas.
+ * 
+ * Representa un enemigo que se mueve de forma continua hacia arriba y abajo
+ * en una liana especifica, rebotando entre limites verticales. Este es uno
+ * de los dos tipos de enemigos en Donkey Kong Jr.
+ * 
+ * Comportamiento:
+ * - Movimiento vertical continuo en una sola liana
+ * - Cambia de direccion al alcanzar limites superior o inferior
+ * - Velocidad configurable mediante Speed
+ * - Usa interpolacion float para movimiento suave
+ * 
+ * Sistema de coordenadas:
+ * - heightFloat: Posicion vertical continua para movimiento suave
+ * - height: Posicion discreta para sincronizacion con clientes
+ * - minHeight/maxHeight: Limites de patrullaje (pixeles)
+ * 
+ * Implementa Entity para integrarse en el sistema de entidades del juego.
+ */
 public final class CrocodileRed implements Entity {
     private final LianaId liana;
     private Height  height;
@@ -19,6 +39,19 @@ public final class CrocodileRed implements Entity {
     private static final Integer GLOBAL_MIN_HEIGHT = Integer.valueOf(0);
     private static final Integer GLOBAL_MAX_HEIGHT = Integer.valueOf(12);
 
+    /**
+     * Crea un cocodrilo rojo con parametros de patrullaje especificados.
+     * 
+     * El cocodrilo comienza moviendose hacia arriba desde la altura inicial,
+     * y patrullara entre minH y maxH indefinidamente.
+     * 
+     * @param liana Identificador de la liana a patrullar. No puede ser null.
+     * @param height Altura inicial en la liana. No puede ser null.
+     * @param speed Velocidad de movimiento vertical. No puede ser null.
+     * @param minH Limite inferior de patrullaje (en altura logica)
+     * @param maxH Limite superior de patrullaje (en altura logica)
+     * @throws NullPointerException si liana, height o speed son null
+     */
     public CrocodileRed(LianaId liana, Height height, Speed speed, Float minH, Float maxH){
         this.liana = Objects.requireNonNull(liana);
         this.height = Objects.requireNonNull(height);
@@ -40,10 +73,30 @@ public final class CrocodileRed implements Entity {
                           " range=[" + minH + "-" + maxH + "]");
     }
     
+    /**
+     * Obtiene la posicion actual del cocodrilo.
+     * 
+     * @return Position en el espacio del juego (liana + altura)
+     */
     @Override public Position position(){ return new Position(liana, height); }
     
+    /**
+     * Indica si el cocodrilo se esta moviendo hacia arriba.
+     * 
+     * @return true si se mueve hacia arriba, false si se mueve hacia abajo
+     */
     public Boolean isGoingUp() { return goingUp; }
 
+    /**
+     * Avanza la simulacion del cocodrilo un tick de juego.
+     * 
+     * Actualiza la posicion vertical del cocodrilo segun su velocidad y direccion.
+     * Al alcanzar los limites superior o inferior de patrullaje, invierte la direccion.
+     * Utiliza interpolacion float para movimiento suave y luego redondea a entero
+     * para sincronizacion con clientes.
+     * 
+     * @return this (instancia actualizada) para permitir encadenamiento
+     */
     public CrocodileRed step(){
         try {
             Float speedValue = Float.parseFloat(speed.value());

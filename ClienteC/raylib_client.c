@@ -1,3 +1,80 @@
+/**
+ * @file raylib_client.c
+ * @brief Cliente principal de Donkey Kong Jr con Raylib
+ * 
+ * Implementacion completa del cliente de juego multijugador usando Raylib para graficos
+ * y red TCP para comunicacion con el servidor. Soporta modo jugador y espectador.
+ * 
+ * ARQUITECTURA GENERAL:
+ * ===================
+ * - Graficos: Raylib 5.1-dev (renderizado, sprites, animaciones)
+ * - Red: WinSock2 via network.c (comunicacion asincrona con servidor)
+ * - Game Loop: Ciclo principal a ~60fps con logica separada
+ * - Estados: Menu inicial, modo jugador, modo espectador
+ * 
+ * RESPONSABILIDADES:
+ * ==================
+ * 1. Inicializacion:
+ *    - Ventana Raylib 800x600
+ *    - Carga de sprites y texturas
+ *    - Conexion TCP al servidor
+ *    - Inicializacion de nivel estatico
+ * 
+ * 2. Renderizado:
+ *    - Nivel (plataformas, lianas, NPCs)
+ *    - Jugadores con animacion de sprite sheet (4 frames)
+ *    - Enemigos (cocodrilos rojos y azules)
+ *    - Frutas coleccionables (3 tipos)
+ *    - HUD (vidas, puntaje)
+ *    - Efectos visuales (flash de respawn, popups de puntos)
+ * 
+ * 3. Input:
+ *    - Teclado: Flechas para movimiento, W para saltar
+ *    - Debug: F1 toggle hitboxes, F2 ajustes de hitbox
+ *    - Menu: Numeros para seleccionar modo
+ * 
+ * 4. Red:
+ *    - Recepcion asincrona via callbacks (on_message, on_disconnect)
+ *    - Parseo de protocolo: STATE, SCORE, DEAD, LEVEL, etc.
+ *    - Envio de comandos: MOVE, WIN, PING
+ *    - Sincronizacion de estado del mundo
+ * 
+ * 5. Animacion:
+ *    - Sprite sheet de Jr: 4 frames horizontales
+ *    - Animacion a 10fps solo cuando se mueve
+ *    - Frame 0 cuando esta quieto
+ * 
+ * PROTOCOLO DE RED:
+ * ==================
+ * Cliente -> Servidor:
+ * - HELLO PLAYER / HELLO SPECTATOR <ID>
+ * - MOVE UP|DOWN|LEFT|RIGHT|JUMP
+ * - WIN (al alcanzar objetivo)
+ * - PING
+ * - BYE
+ * 
+ * Servidor -> Cliente:
+ * - OK <ID> (respuesta a HELLO)
+ * - STATE <datos_mundo> (actualizacion periodica)
+ * - SCORE <player> <points> (puntos ganados)
+ * - DEAD <player> (muerte de jugador)
+ * - LEVEL <num> SPEED <val> (cambio de nivel)
+ * - PLAYER_DISCONNECTED (jugador observado se desconecto)
+ * 
+ * SISTEMA DE COORDENADAS:
+ * =======================
+ * - Pixeles absolutos: (0,0) esquina superior izquierda
+ * - X: 0 (izquierda) a 800 (derecha)
+ * - Y: 0 (arriba) a 600 (abajo)
+ * - Posiciones de entidades son el CENTRO del sprite
+ * 
+ * THREADS:
+ * ========
+ * - Hilo principal: Renderizado, input, logica de juego
+ * - Hilo receptor: Recibe mensajes del servidor (network.c)
+ * - Sincronizacion: Lock simple (g_world_lock) para estado compartido
+ */
+
 // Cliente Donkey Kong Jr - Raylib (sprites + HUD + respawn flash + popups de puntos)
 #include "raylib.h"
 #include <stdio.h>

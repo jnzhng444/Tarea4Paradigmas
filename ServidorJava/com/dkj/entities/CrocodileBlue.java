@@ -11,6 +11,30 @@ import com.dkj.game.Level;
 import java.util.Objects;
 import java.util.Random;
 
+/**
+ * Cocodrilo azul - Enemigo con comportamiento de dos fases.
+ * 
+ * Representa un enemigo que exhibe un patron de movimiento complejo en dos estados:
+ * 1. WALKING_ON_PLATFORM: Camina horizontalmente en plataformas hacia una liana objetivo
+ * 2. DESCENDING_LIANA: Desciende verticalmente por la liana hasta desaparecer
+ * 
+ * Comportamiento:
+ * - Fase 1: Spawneo en plataforma, seleccion de liana aleatoria, movimiento horizontal
+ * - Fase 2: Transicion a liana objetivo, descenso vertical hasta el suelo
+ * - Fisica adaptativa: Sigue contornos de plataformas durante movimiento horizontal
+ * - Auto-destruccion: Desaparece al salir de limites o alcanzar el suelo
+ * 
+ * Modos de creacion:
+ * - Automatico: Spawneado desde posicion de Mario con liana aleatoria
+ * - Manual: Spawneado directamente en liana por administrador
+ * 
+ * Sistema de coordenadas:
+ * - platformX: Posicion horizontal cuando camina (pixeles)
+ * - heightFloat: Altura continua para movimiento suave (logica 0-12)
+ * - targetLianaIndex: Liana objetivo hacia la cual se dirige (1-6, excluyendo 3)
+ * 
+ * Implementa Entity para integrarse en el sistema de entidades del juego.
+ */
 public final class CrocodileBlue implements Entity {
     private LianaId liana;
     private Height  height;
@@ -25,12 +49,28 @@ public final class CrocodileBlue implements Entity {
     private static final Random random = new Random();
     private static final Integer[] VALID_LIANAS = {1, 2, 4, 5, 6}; // Excluir liana 3
     
+    /**
+     * Enumeracion de estados del cocodrilo azul.
+     * 
+     * - WALKING_ON_PLATFORM: El cocodrilo camina horizontalmente buscando una liana
+     * - DESCENDING_LIANA: El cocodrilo ha alcanzado una liana y desciende por ella
+     */
     public enum CrocodileBlueState {
         WALKING_ON_PLATFORM,
         DESCENDING_LIANA
     }
 
-    // Constructor existente para spawner automático (camina en plataforma)
+    /**
+     * Constructor para spawner automatico (camina en plataforma).
+     * 
+     * Crea un cocodrilo azul que comienza caminando en una plataforma y selecciona
+     * una liana aleatoria como objetivo. Se mueve horizontalmente hasta alcanzarla
+     * y luego desciende.
+     * 
+     * @param platformHeight Altura de la plataforma inicial
+     * @param speed Velocidad de movimiento
+     * @param startX Posicion horizontal inicial (tipicamente 140.0 = posicion de Mario)
+     */
     public CrocodileBlue(Height platformHeight, Speed speed, Float startX){
         this.liana = null;
         this.height = Objects.requireNonNull(platformHeight);
@@ -52,7 +92,17 @@ public final class CrocodileBlue implements Entity {
         System.out.println("[BLUE CREATED WALKING] Target liana: " + targetLianaIndex + ", height=" + heightFloat + ", x=" + startX);
     }
 
-    // NUEVO: Constructor para spawneo directo en liana (ADMIN CONSOLE)
+    /**
+     * Constructor para spawneo directo en liana (admin console).
+     * 
+     * Crea un cocodrilo azul que aparece directamente en una liana especifica
+     * en modo descendente, sin fase de caminar. Utilizado para spawneo manual.
+     * 
+     * @param liana Identificador de la liana donde aparece. No puede ser null.
+     * @param height Altura inicial en la liana. No puede ser null.
+     * @param speed Velocidad de descenso. No puede ser null.
+     * @throws NullPointerException si liana, height o speed son null
+     */
     public CrocodileBlue(LianaId liana, Height height, Speed speed){
         this.liana = Objects.requireNonNull(liana);
         this.height = Objects.requireNonNull(height);
@@ -72,6 +122,12 @@ public final class CrocodileBlue implements Entity {
         System.out.println("[BLUE CREATED ON LIANA] liana=" + liana.value() + ", height=" + heightFloat + " (ADMIN SPAWN)");
     }
     
+    /**
+     * Obtiene la posicion actual del cocodrilo.
+     * 
+     * @return Position en el espacio del juego. Si esta caminando (sin liana asignada),
+     *         retorna liana "0" como marcador temporal.
+     */
     @Override 
     public Position position(){ 
         return new Position(
@@ -80,9 +136,39 @@ public final class CrocodileBlue implements Entity {
         ); 
     }
     
+    /**
+     * Obtiene la posicion horizontal cuando el cocodrilo esta caminando.
+     * 
+     * @return Coordenada X en pixeles, o null si esta descendiendo por liana
+     */
     public Float getPlatformX() { return platformX; }
+    
+    /**
+     * Obtiene el estado actual del cocodrilo.
+     * 
+     * @return Estado actual (WALKING_ON_PLATFORM o DESCENDING_LIANA)
+     */
     public CrocodileBlueState getState() { return state; }
 
+    /**
+     * Avanza la simulacion del cocodrilo un tick de juego.
+     * 
+     * Logica compleja que maneja dos fases:
+     * 
+     * Fase WALKING_ON_PLATFORM:
+     * - Calcula direccion hacia liana objetivo
+     * - Mueve horizontalmente segun velocidad
+     * - Ajusta altura para seguir contornos de plataformas
+     * - Detecta proximidad a liana objetivo y transiciona a DESCENDING
+     * - Auto-destruye si sale de los limites del mapa
+     * 
+     * Fase DESCENDING_LIANA:
+     * - Desciende verticalmente por la liana
+     * - Auto-destruye al alcanzar altura 0 (suelo)
+     * 
+     * @param level Nivel actual para consultar plataformas y lianas
+     * @return this si el cocodrilo sigue activo, null si debe ser eliminado
+     */
     public CrocodileBlue step(Level level){
         try {
             Float speedValue = Float.parseFloat(speed.value());
