@@ -54,7 +54,7 @@ public final class MatchRegistry {
      * @param out canal de salida para enviar actualizaciones al cliente
      */
     public void createRoomFor(PlayerId pid, PrintWriter out){
-        GameRoom room = new GameRoom(factory);   // ★ pasa la fábrica a la sala
+        GameRoom room = new GameRoom(factory);   // pasa la fábrica a la sala
         room.attach(out);
         room.game().addPlayer(pid);
         rooms.put(pid, room);

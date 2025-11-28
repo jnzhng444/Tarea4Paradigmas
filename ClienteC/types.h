@@ -48,7 +48,7 @@ typedef struct {
     int lives;
     int score;
     bool facingRight;
-    bool respawned;     // 🔹 nuevo: para feedback de colision con cocodrilos
+    bool respawned;    
 } PlayerState;
 
 /**

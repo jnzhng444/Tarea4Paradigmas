@@ -269,11 +269,11 @@ static void detect_fruit_events(FruitPrev* prev, int prevCount) {
             
             if (foundCollected) {
                 // La fruta sigue ahí pero collected=true = jugador la agarró
-                TraceLog(LOG_WARNING, "🍌 FRUIT COLLECTED (case 2)! +%d (YELLOW)", prev[j].points);
+                TraceLog(LOG_WARNING, "FRUIT COLLECTED (case 2)! +%d (YELLOW)", prev[j].points);
                 spawn_points_popup(prev[j].pos, prev[j].points);  // Positivo
             } else {
                 // Realmente desapareció = borrada por admin
-                TraceLog(LOG_WARNING, "❌ FRUIT DELETED! -%d (RED)", prev[j].points);
+                TraceLog(LOG_WARNING, "FRUIT DELETED! -%d (RED)", prev[j].points);
                 spawn_points_popup(prev[j].pos, -prev[j].points);  // Negativo
             }
         }

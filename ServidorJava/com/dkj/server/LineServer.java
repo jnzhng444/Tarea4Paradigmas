@@ -44,11 +44,11 @@ public class LineServer {
     private final Integer port;
     private final String serverId;
 
-    // ★ Fábrica explícita para el dominio
-    private final DefaultEntityFactory factory = new DefaultEntityFactory();
+    // Fábrica explícita para el dominio
+    private final DefaultEntityFactory entityFactory = new DefaultEntityFactory();
 
-    // ★ MatchRegistry ahora recibe la fábrica (para crear Game/entidades)
-    private final MatchRegistry matches = new MatchRegistry(factory);
+    // MatchRegistry ahora recibe la fábrica (para crear Game/entidades)
+    private final MatchRegistry matchRegistry = new MatchRegistry(entityFactory);
     private final SessionRegistry sessions = new SessionRegistry();
 
     /**
@@ -82,7 +82,7 @@ public class LineServer {
             System.out.println("Servidor escuchando en puerto " + port);
 
             // Dispatcher NO cambia: sólo le pasamos el MatchRegistry ya cableado con la fábrica
-            var dispatcher = new CommandDispatcherWithGame(serverId, matches, sessions);
+            var dispatcher = new CommandDispatcherWithGame(serverId, matchRegistry, sessions);
 
             // GUI Admin (ventana)
             SwingUtilities.invokeLater(() -> {
@@ -137,7 +137,7 @@ public class LineServer {
             }
 
             // limpieza
-            matches.removeClient(ctx); // si tu Dispatcher asocia el ctx a una partida, esto lo saca
+            matchRegistry.removeClient(ctx); // si tu Dispatcher asocia el ctx a una partida, esto lo saca
             sessions.remove(ctx);
 
         } catch (Exception e) {
