@@ -16,20 +16,45 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+/**
+ * Dispatcher principal encargado de interpretar y procesar los comandos de la
+ * red para clientes jugadores, espectadores y administradores.
+ *
+ * <p>La instancia mantiene referencias a los registros de partidas y sesiones
+ * activas, y expone un mecanismo de despacho que traduce cada linea recibida en
+ * una invocacion concreta al dominio del juego. Este componente es el puente
+ * entre el protocolo textual y las operaciones del modelo.</p>
+ */
 public final class CommandDispatcherWithGame {
 
+    @SuppressWarnings("unused")
     private final String serverId;
     private final MatchRegistry registry;
     private final SessionRegistry sessions;
     private Map<String, Function<Call, String>> table;
 
-    /** Encapsula tokens + contexto por conexión */
+    /**
+     * Wrapper liviano que agrupa los tokens de un comando junto con el contexto
+     * del cliente que lo emitio. Se utiliza internamente para facilitar el paso de
+     * datos entre los handlers privados.
+     */
     private static final class Call {
         final List<String> tokens;
         final ClientContext ctx;
+
         Call(List<String> t, ClientContext c){ this.tokens = t; this.ctx = c; }
     }
 
+    /**
+     * Crea un nuevo dispatcher enlazado a los registros dados.
+     *
+     * @param serverId identificador textual del servidor (util para trazas y
+     *                 comandos administrativos)
+     * @param registry registro de partidas activas que permite obtener juegos y
+     *                 validar conexiones
+     * @param sessions registro de sesiones para reflejar nuevos jugadores o
+     *                 espectadores conectados
+     */
     public CommandDispatcherWithGame(String serverId, MatchRegistry registry, SessionRegistry sessions) {
         this.serverId  = Objects.requireNonNull(serverId);
         this.registry  = Objects.requireNonNull(registry);
@@ -37,6 +62,10 @@ public final class CommandDispatcherWithGame {
         initMaps();
     }
 
+    /**
+     * Inicializa la tabla de despacho asignando cada palabra clave a su handler
+     * correspondiente. Se invoca desde el constructor y no se expone al exterior.
+     */
     private void initMaps() {
         Map<String, Function<Call, String>> t = new HashMap<>();
         t.put("PING",  this::onPing);
@@ -48,6 +77,15 @@ public final class CommandDispatcherWithGame {
         this.table = Collections.unmodifiableMap(t);
     }
 
+    /**
+     * Punto de entrada publico que recibe una linea del cliente y devuelve la
+     * respuesta protocolaria correspondiente.
+     *
+     * @param line comando textual enviado por el cliente (puede incluir
+     *             parametros separados por espacios)
+     * @param ctx  contexto del cliente que emite el comando
+     * @return respuesta procesada, en el formato del protocolo (OK/ACK/ERR/...) 
+     */
     public String dispatch(String line, ClientContext ctx) {
         if (line == null || line.isBlank()) return err(Integer.valueOf(400), "Comando vacio. Escribe un comando valido (ej: PING, HELLO, MOVE).");
         final List<String> tokens = tokenize(line);
@@ -58,10 +96,23 @@ public final class CommandDispatcherWithGame {
 
     // -------------------- Cliente --------------------
 
+    /**
+     * Atiende el comando PING enviado por clientes para validar conectividad.
+     *
+     * @param c wrapper con tokens del comando y contexto del cliente
+     * @return "PONG" si la sintaxis es correcta, o un error 400 en caso contrario
+     */
     private String onPing(Call c) {
         return (c.tokens.size()==Integer.valueOf(1)) ? "PONG" : err(Integer.valueOf(400),"PING no requiere parametros. Uso correcto: PING");
     }
 
+    /**
+     * Gestiona el comando HELLO, responsable del proceso de autenticacion y
+     * registro de jugadores/espectadores.
+     *
+     * @param c wrapper con tokens y contexto del cliente
+     * @return respuesta OK con datos de session o mensaje de error detallado
+     */
     private String onHello(Call c) {
         // Formatos:
         // HELLO PLAYER
@@ -115,6 +166,12 @@ public final class CommandDispatcherWithGame {
         return err(Integer.valueOf(422),"Rol invalido. Debe ser PLAYER o SPECTATOR. Uso: HELLO PLAYER o HELLO SPECTATOR <ID>");
     }
 
+    /**
+     * Procesa movimientos del jugador en la partida asociada.
+     *
+     * @param c wrapper con tokens y contexto
+     * @return ACK con la direccion aplicada o mensaje de error indicando la causa
+     */
     private String onMove(Call c) {
         if (c.tokens.size()!=Integer.valueOf(2)) return err(Integer.valueOf(400),"Comando MOVE incompleto. Uso: MOVE <direccion> (UP, DOWN, LEFT, RIGHT, JUMP)");
         if (c.ctx.role() != Role.PLAYER) return err(Integer.valueOf(403),"Solo los jugadores pueden moverse. Los espectadores no pueden usar el comando MOVE.");
@@ -130,6 +187,12 @@ public final class CommandDispatcherWithGame {
         return "ACK MOVE " + dir.name();
     }
 
+    /**
+     * Atiende la notificacion de victoria enviada por el cliente jugador.
+     *
+     * @param c wrapper con tokens y contexto del cliente
+     * @return "OK VICTORY" si la solicitud es valida o un mensaje de error
+     */
     private String onWin(Call c) {
         if (c.ctx.role() != Role.PLAYER || c.ctx.playerId() == null) {
             return err(Integer.valueOf(403), "Solo los jugadores pueden ganar. Los espectadores no pueden usar WIN.");
@@ -141,6 +204,12 @@ public final class CommandDispatcherWithGame {
         return "OK VICTORY";
     }
 
+    /**
+     * Gestiona la desconexion voluntaria del cliente mediante BYE.
+     *
+     * @param c wrapper con tokens y contexto
+     * @return "BYE" si el comando es correcto o error 400 en caso contrario
+     */
     private String onBye(Call c) {
         return (c.tokens.size()==Integer.valueOf(1)) ? "BYE" : err(Integer.valueOf(400),"BYE no requiere parametros. Uso correcto: BYE");
     }
@@ -151,6 +220,12 @@ public final class CommandDispatcherWithGame {
     //   ADMIN <PLAYER_ID> SPAWN CROCODILE BLUE <LIANA>
     //   ADMIN <PLAYER_ID> SPAWN FRUIT <LIANA> <ALTURA> <PUNTOS>
     //   ADMIN <PLAYER_ID> DELETE FRUIT <LIANA> <ALTURA>
+    /**
+     * Ejecuta comandos administrativos sobre partidas en curso (SPAWN/DELETE).
+     *
+     * @param c wrapper con los tokens ya tokenizados y el contexto de cliente
+     * @return respuesta del comando administrativo en formato ACK/ERR
+     */
     private String onAdmin(Call c) {
         var tk = c.tokens;
         if (tk.size() < Integer.valueOf(3)) return err(Integer.valueOf(400),"Comando ADMIN incompleto. Uso: ADMIN <PLAYER_ID> <SPAWN|DELETE> ... (usa 'help' en la consola admin para ver ejemplos)");
@@ -167,6 +242,14 @@ public final class CommandDispatcherWithGame {
         };
     }
 
+    /**
+     * Handler auxiliar para el subcomando ADMIN SPAWN, permitiendo generar
+     * cocodrilos o frutas en la partida indicada.
+     *
+     * @param game instancia de juego sobre la cual se operara
+     * @param tk   tokens completos del comando administrativo
+     * @return ACK si la operacion fue exitosa o un mensaje de error descriptivo
+     */
     private String onAdminSpawn(Game game, List<String> tk) {
         if (tk.size()<Integer.valueOf(4)) return err(Integer.valueOf(400),"Comando SPAWN incompleto. Especifica el tipo de entidad: CROCODILE o FRUIT");
         String kind = tk.get(Integer.valueOf(3)).toUpperCase(Locale.ROOT);
@@ -195,6 +278,14 @@ public final class CommandDispatcherWithGame {
         }
     }
 
+    /**
+     * Handler auxiliar para ADMIN DELETE, utilizado para retirar frutas
+     * existentes de una partida.
+     *
+     * @param game instancia de juego afectada
+     * @param tk   tokens del comando administrativo
+     * @return ACK si la fruta fue eliminada correctamente o error con detalle
+     */
     private String onAdminDelete(Game game, List<String> tk) {
         if (tk.size()<Integer.valueOf(5)) return err(Integer.valueOf(400),"Comando DELETE incompleto. Uso: DELETE FRUIT <LIANA> <ALTURA>");
         String kind = tk.get(Integer.valueOf(3)).toUpperCase(Locale.ROOT);
@@ -204,6 +295,13 @@ public final class CommandDispatcherWithGame {
         return "ACK ADMIN DELETE FRUIT";
     }
 
+    /**
+     * Fallback utilizado cuando la palabra clave del comando no coincide con
+     * ninguna entrada de la tabla de despacho.
+     *
+     * @param c wrapper con tokens y contexto del cliente
+     * @return mensaje de error 400 indicando los comandos disponibles
+     */
     private String onUnknown(Call c) {
         String cmd = c.tokens.isEmpty() ? "(vacio)" : c.tokens.get(Integer.valueOf(0));
         return "ERR 400 Comando '" + cmd + "' no reconocido. Comandos validos: PING, HELLO, MOVE, WIN, BYE, ADMIN";
@@ -211,10 +309,24 @@ public final class CommandDispatcherWithGame {
 
     // -------------------- Util ------------------------------
 
+    /**
+     * Divide la linea recibida en tokens separados por espacios, ignorando
+     * segmentos en blanco.
+     *
+     * @param line linea original recibida del cliente
+     * @return lista inmutable de tokens en el orden de aparicion
+     */
     private static List<String> tokenize(String line){
         return Stream.of(line.trim().split("\\s+"))
                      .filter(s -> !s.isBlank())
                      .collect(Collectors.toList());
     }
+    /**
+     * Construye respuestas de error siguiendo el formato del protocolo.
+     *
+     * @param code codigo numerico HTTP-like que identifica la causa
+     * @param text descripcion legible del error
+     * @return cadena con prefijo ERR lista para enviarse al cliente
+     */
     private static String err(Integer code, String text){ return "ERR " + code + " " + text; }
 }

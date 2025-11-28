@@ -1,0 +1,1 @@
+packageSearchIndex = [{"l":"All Packages","u":"allpackages-index.html","k":"18"},{"l":"com.dkj.admin"},{"l":"com.dkj.commands"},{"l":"com.dkj.entities"},{"l":"com.dkj.events"},{"l":"com.dkj.game"},{"l":"com.dkj.main"},{"l":"com.dkj.model"},{"l":"com.dkj.server"}];updateSearchResults();

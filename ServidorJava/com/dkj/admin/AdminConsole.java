@@ -8,15 +8,31 @@ import com.dkj.server.SessionRegistry;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 
+/**
+ * Consola de administracion interactiva basada en texto para operadores del
+ * servidor. Permite ejecutar comandos administrativos con validacion previa y
+ * mensajes de ayuda amigables.
+ */
 public final class AdminConsole implements Runnable {
     private final CommandDispatcherWithGame dispatcher;
     private final SessionRegistry sessions;
 
+    /**
+     * Construye la consola de administracion con el dispatcher y registro de
+     * sesiones proporcionados.
+     *
+     * @param dispatcher dispatcher que procesa los comandos ADMIN
+     * @param sessions registro de sesiones para consultar jugadores conectados
+     */
     public AdminConsole(CommandDispatcherWithGame dispatcher, SessionRegistry sessions) {
         this.dispatcher = dispatcher;
         this.sessions = sessions;
     }
 
+    /**
+     * Bucle principal de la consola. Lee comandos desde {@code System.in},
+     * ofrece ayuda contextual y despacha las instrucciones validas.
+     */
     @Override
     public void run() {
         try (var in = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8))) {
@@ -30,7 +46,7 @@ public final class AdminConsole implements Runnable {
                 if (line == null) break;
                 line = line.trim();
                 if (line.isEmpty()) continue;
-
+                
                 if (line.equalsIgnoreCase("quit") || line.equalsIgnoreCase("exit")) {
                     System.out.println("[INFO] Cerrando consola de administracion...");
                     System.out.println("[INFO] El servidor continuara ejecutandose.");
@@ -86,7 +102,9 @@ public final class AdminConsole implements Runnable {
 
     /**
      * Valida el comando antes de enviarlo al dispatcher.
-     * Retorna null si es valido, o un mensaje de error descriptivo.
+     *
+     * @param line linea original introducida por el administrador
+     * @return {@code null} si la sintaxis es valida, o mensaje descriptivo en caso de error
      */
     private String validateCommand(String line) {
         String[] tokens = line.trim().split("\\s+");
@@ -128,6 +146,13 @@ public final class AdminConsole implements Runnable {
         return "Comando '" + cmd + "' no reconocido. Escribe 'help' para ver comandos disponibles.";
     }
     
+    /**
+     * Valida la estructura de un comando ADMIN SPAWN y retorna el error si
+     * existiera.
+     *
+     * @param tokens arreglo tokenizado del comando original
+     * @return mensaje de error o {@code null} cuando la sintaxis es valida
+     */
     private String validateSpawnCommand(String[] tokens) {
         // ADMIN <PLAYER_ID> SPAWN ...
         if (tokens.length < 4) {
@@ -233,6 +258,13 @@ public final class AdminConsole implements Runnable {
         }
     }
     
+    /**
+     * Valida la estructura de un comando ADMIN DELETE y retorna el mensaje de
+     * error cuando la sintaxis es incorrecta.
+     *
+     * @param tokens arreglo tokenizado del comando original
+     * @return mensaje de error o {@code null} si la instruccion es valida
+     */
     private String validateDeleteCommand(String[] tokens) {
         // ADMIN <PID> DELETE FRUIT <LIANA> <ALTURA>
         if (tokens.length < 4) {
@@ -270,6 +302,10 @@ public final class AdminConsole implements Runnable {
         return null;
     }
 
+    /**
+     * Presenta en pantalla la ayuda detallada con comandos, parametros y
+     * ejemplos para los administradores.
+     */
     private static void printHelp() {
         System.out.println();
         System.out.println("╔════════════════════════════════════════════════════════════════════════════╗");
@@ -317,6 +353,10 @@ public final class AdminConsole implements Runnable {
         System.out.println();
     }
 
+    /**
+     * Muestra un resumen de jugadores y espectadores conectados actualmente,
+     * incluyendo totalizadores y mensajes de ayuda contextual.
+     */
     private void listPlayers() {
         var list = sessions.list();
         if (list.isEmpty()) {

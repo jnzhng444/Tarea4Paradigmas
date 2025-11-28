@@ -13,6 +13,10 @@ import com.dkj.model.PlayerPhysics;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
+/**
+ * Motor de fisica encargado de procesar movimientos, colisiones y reapariciones
+ * de los jugadores.
+ */
 final class PhysicsEngine {
     private static final Float PLAYER_WIDTH  = Float.valueOf(20.0f);
     private static final Float PLAYER_HEIGHT = Float.valueOf(30.0f);
@@ -21,36 +25,78 @@ final class PhysicsEngine {
     private final Map<PlayerId, PlayerPhysics> playerPhysics = new HashMap<>();
     private final Queue<MoveCommand> moves = new ConcurrentLinkedQueue<>();
 
+    /**
+     * Crea el motor de fisica apoyado en la geometria del {@link Level} dado.
+     *
+     * @param level nivel sobre el cual se simularan las interacciones
+     */
     PhysicsEngine(Level level) {
         this.level = Objects.requireNonNull(level);
     }
 
+    /**
+     * Obtiene el mapa completo de estados fisicos por jugador.
+     *
+     * @return mapa inmutable con la fisica de cada jugador
+     */
     Map<PlayerId, PlayerPhysics> getPlayerPhysics() {
         return playerPhysics;
     }
     
+    /**
+     * Recupera el estado fisico asociado al jugador indicado.
+     *
+     * @param id jugador requerido
+     * @return instancia {@link PlayerPhysics} o {@code null} si no existe
+     */
     PlayerPhysics getPhysicsFor(PlayerId id) {
         return playerPhysics.get(id);
     }
 
+    /**
+     * Agrega un jugador inicializando su estado fisico por defecto.
+     *
+     * @param id identificador del nuevo jugador
+     */
     void addPlayer(PlayerId id) {
         playerPhysics.put(id, new PlayerPhysics());
     }
 
+    /**
+     * Elimina el estado fisico asociado al jugador dado.
+     *
+     * @param id jugador a retirar
+     */
     void removePlayer(PlayerId id) {
         playerPhysics.remove(id);
     }
 
+    /**
+     * Encola una orden de movimiento para ser procesada en el siguiente tick.
+     *
+     * @param id jugador emisor del comando
+     * @param dir direccion solicitada
+     */
     void enqueueMove(PlayerId id, Direction dir) {
         if (id == null || dir == null) return;
         moves.offer(new MoveCommand(id, dir));
     }
 
+    /**
+     * Avanza la simulacion del motor aplicando movimientos y fisica.
+     *
+     * @param dt delta de tiempo en segundos
+     */
     void update(Float dt) {
         processMoves(dt);
         updatePhysics(dt);
     }
 
+    /**
+     * Procesa la cola de comandos de movimiento ajustando las velocidades.
+     *
+     * @param dt delta de tiempo actual (algunos movimientos lo utilizan)
+     */
     private void processMoves(Float dt) {
         MoveCommand m;
         while ((m = moves.poll()) != null) {
@@ -83,6 +129,12 @@ final class PhysicsEngine {
         }
     }
 
+    /**
+     * Actualiza la dinamica de los jugadores aplicando gravedad, colisiones y
+     * deteccion de interacciones con entidades.
+     *
+     * @param dt delta de tiempo en segundos
+     */
     private void updatePhysics(Float dt) {
         final var platforms = level.platforms();
         final var lianas    = level.lianas();
@@ -375,6 +427,11 @@ final class PhysicsEngine {
         }
     }
 
+    /**
+     * Intenta que el jugador se aferre a la liana mas cercana dentro del rango.
+     *
+     * @param phys estado fisico del jugador
+     */
     private void tryGrabLiana(PlayerPhysics phys) {
         var lianas = level.lianas();
         for (Integer i = Integer.valueOf(0); i < lianas.size(); i = i + 1) {
@@ -389,6 +446,11 @@ final class PhysicsEngine {
         }
     }
 
+    /**
+     * Restablece el estado del jugador tras morir, reduciendo vidas y puntaje.
+     *
+     * @param phys estado fisico a reiniciar
+     */
     private void respawn(PlayerPhysics phys) {
         System.out.println("════════════════════════════════════════");
         System.out.println("[RESPAWN DEBUG] Player died!");
@@ -414,6 +476,12 @@ final class PhysicsEngine {
         System.out.println("[RESPAWN] Lives remaining: " + phys.lives);
     }
 
+    /**
+     * Convierte una altura logica (0-12) a coordenadas en pixeles.
+     *
+     * @param logicalHeight altura logica global
+     * @return posicion vertical equivalente en pixeles
+     */
     private static Float heightToPixels(Integer logicalHeight) {
         // Mapea altura lógica (0-12) a píxeles del rango recortado (520-120)
         // logicalHeight=0 -> y=520 (abajo), logicalHeight=12 -> y=120 (arriba)
@@ -423,21 +491,47 @@ final class PhysicsEngine {
         return max_y - (logicalHeight / 12.0f) * range;
     }
 
+    /**
+     * Rectangulo axis-aligned usado para deteccion de colisiones.
+     */
     static final class Rect {
         final Float x, y, w, h;
         Rect(Float x, Float y, Float w, Float h){ this.x=x; this.y=y; this.w=w; this.h=h; }
     }
 
+    /**
+     * Determina si dos rectangulos se solapan.
+     *
+     * @param a primer rectangulo
+     * @param b segundo rectangulo
+     * @return {@code true} si existe interseccion
+     */
     static Boolean rectOverlap(Rect a, Rect b){
         return a.x < b.x + b.w && a.x + a.w > b.x &&
                a.y < b.y + b.h && a.y + a.h > b.y;
     }
 
+    /**
+     * Construye el rectangulo de colision del jugador centrado en (x,y).
+     *
+     * @param x coordenada horizontal del centro
+     * @param y coordenada vertical del centro
+     * @return rectangulo axis-aligned del jugador
+     */
     private static Rect playerRect(Float x, Float y){
         return new Rect(x - PLAYER_WIDTH*0.5f, y - PLAYER_HEIGHT*0.5f,
                         PLAYER_WIDTH, PLAYER_HEIGHT);
     }
 
+    /**
+     * Hitbox generica para cocodrilos, ajustando el sprite rojo o azul segun su
+     * orientacion.
+     *
+     * @param x coordenada horizontal del centro
+     * @param y coordenada vertical del centro
+     * @param isRed indica si se usa la configuracion del cocodrilo rojo
+     * @return rectangulo de colision principal
+     */
     private static Rect crocRect(Float x, Float y, Boolean isRed) {
         // Hitbox para cocodrilo rojo (siempre vertical) - escala 2.0x
         Float w = Float.valueOf(52f);
@@ -445,6 +539,9 @@ final class PhysicsEngine {
         return new Rect(x - w/2, y - h/2, w, h);
     }
     
+    /**
+     * Hitbox para cocodrilos azules mientras caminan en plataforma.
+     */
     private static Rect crocBlueWalkingRect(Float x, Float y) {
         // Hitbox para azul caminando (rotado 90°, horizontal) - escala 2.0x
         // Cuando está horizontal: más ancho, menos alto
@@ -453,6 +550,9 @@ final class PhysicsEngine {
         return new Rect(x - w/2, y - h/2, w, h);
     }
     
+    /**
+     * Hitbox para cocodrilos azules mientras descienden por una liana.
+     */
     private static Rect crocBlueDescendingRect(Float x, Float y) {
         // Hitbox para azul bajando (vertical) - escala 2.0x
         // Cuando está vertical: menos ancho, más alto
@@ -461,6 +561,9 @@ final class PhysicsEngine {
         return new Rect(x - w/2, y - h/2, w, h);
     }
 
+    /**
+     * Hitbox para frutas coleccionables.
+     */
     private static Rect fruitRect(Float x, Float y) {
         // Hitbox ajustada para sprites escalados 1.8x
         Float w = Float.valueOf(25f), h = Float.valueOf(25f);

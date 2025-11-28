@@ -10,9 +10,16 @@ import com.dkj.model.Platform;
 
 import java.util.*;
 
+/**
+ * Modelo completo del nivel de juego, incluyendo plataformas, lianas y
+ * contenedores para entidades dinamicas.
+ */
 public final class Level {
 
-    // Slot con ID estable + datos geométricos
+    /**
+     * Slot interno que relaciona un {@link LianaId} estable con la geometria de
+     * la liana correspondiente.
+     */
     static final class LianaSlot {
         final LianaId id;          // "1", "2", ...
         final Liana    liana;      // x, top, bottom
@@ -32,6 +39,9 @@ public final class Level {
     private Float marioX;
     private Float marioY;
 
+    /**
+     * Construye el nivel con su disposicion fija de plataformas y lianas.
+     */
     Level() {
         // Plataformas
         platforms.add(new Platform(Float.valueOf(50), Float.valueOf(520), Float.valueOf(200), Float.valueOf(20)));      // piso
@@ -89,42 +99,97 @@ public final class Level {
         idToIndex.put("7", Integer.valueOf(6));
     }
 
+    /**
+     * Devuelve la lista de plataformas estaticas del nivel.
+     *
+     * @return lista inmutable de plataformas (referencia interna no modificar)
+     */
     public List<Platform> platforms() { return platforms; }
     
-    // Posición de Mario
+    /**
+     * Coordenada X donde se posiciona Mario (NPC) en el escenario.
+     *
+     * @return posicion horizontal en pixeles
+     */
     public Float marioX() { return marioX; }
+
+    /**
+     * Coordenada Y donde se posiciona Mario (NPC) en el escenario.
+     *
+     * @return posicion vertical en pixeles
+     */
     public Float marioY() { return marioY; }
 
     // === Lianas (API pública del Level) ===
+    /**
+     * Cantidad de lianas disponibles en el nivel.
+     *
+     * @return numero total de lianas
+     */
     public Integer lianaCount() { return lianaSlots.size(); }
 
+    /**
+     * Indica si existe una liana con el identificador solicitado.
+     *
+     * @param id identificador de liana
+     * @return {@code true} si la liana esta definida
+     */
     public Boolean hasLiana(LianaId id) { return idToIndex.containsKey(id.value()); }
 
+    /**
+     * Obtiene el indice interno (base 0) de una liana si existe.
+     *
+     * @param id identificador de liana
+     * @return {@link OptionalInt} con el indice o vacio si no existe
+     */
     public OptionalInt indexOf(LianaId id) {
         Integer idx = idToIndex.get(id.value());
         return (idx == null) ? OptionalInt.empty() : OptionalInt.of(idx);
     }
 
+    /**
+     * Recupera la liana asociada al identificador indicado.
+     *
+     * @param id identificador de liana
+     * @return {@link Optional} con la liana encontrada
+     */
     public Optional<Liana> lianaById(LianaId id) {
         var idx = indexOf(id);
         if (idx.isEmpty()) return Optional.empty();
         return Optional.of(lianaSlots.get(idx.getAsInt()).liana);
     }
 
+    /**
+     * Obtiene la coordenada X de la liana indicada.
+     *
+     * @param id identificador de liana
+     * @return posicion horizontal en pixeles
+     */
     public Float xOf(LianaId id) {
         var li = lianaById(id).orElseThrow(() ->
             new IllegalArgumentException("Liana no existe: " + id.value()));
         return li.x;
     }
 
-    // Nueva función: obtener topY de una liana específica
+    /**
+     * Devuelve la coordenada superior (topY) de la liana indicada.
+     *
+     * @param id identificador de liana
+     * @return valor Y superior en pixeles
+     */
     public Float topYOf(LianaId id) {
         var li = lianaById(id).orElseThrow(() ->
             new IllegalArgumentException("Liana no existe: " + id.value()));
         return li.topY;
     }
 
-    // Nueva función: calcular altura lógica inicial para un cocodrilo azul spawneado en una liana
+    /**
+     * Calcula la altura logica inicial que corresponde al extremo superior de
+     * la liana (util para spawns de cocodrilos azules).
+     *
+     * @param id identificador de liana
+     * @return altura logica equivalente
+     */
     public Height getInitialHeightForLiana(LianaId id) {
         Float topY = topYOf(id);
         // Convertir topY a altura lógica
@@ -139,6 +204,13 @@ public final class Level {
 
     // NUEVO: Mapear altura lógica (0-12) al espacio real de la liana
     // 0 siempre es el bottomY de la liana, 12 siempre es el topY de la liana
+    /**
+     * Mapea una altura logica global (0-12) al rango especifico de una liana.
+     *
+     * @param id liana de referencia
+     * @param logicalHeight altura logica solicitada
+     * @return altura ajustada a la geometria real del nivel
+     */
     Height mapHeightToLiana(LianaId id, Height logicalHeight) {
         // Obtener topY y bottomY de la liana
         var li = lianaById(id).orElseThrow(() ->
@@ -178,6 +250,12 @@ public final class Level {
     }
 
     // NUEVO: Obtener altura lógica mínima de una liana (bottomY convertido)
+    /**
+     * Calcula la altura logica minima alcanzable en la liana (parte inferior).
+     *
+     * @param id identificador de liana
+     * @return altura logica minima mapeada
+     */
     Float getMinHeightForLiana(LianaId id) {
         var li = lianaById(id).orElseThrow(() ->
             new IllegalArgumentException("Liana no existe: " + id.value()));
@@ -188,6 +266,12 @@ public final class Level {
     }
 
     // NUEVO: Obtener altura lógica máxima de una liana (topY convertido)
+    /**
+     * Calcula la altura logica maxima alcanzable en la liana (parte superior).
+     *
+     * @param id identificador de liana
+     * @return altura logica maxima mapeada
+     */
     Float getMaxHeightForLiana(LianaId id) {
         var li = lianaById(id).orElseThrow(() ->
             new IllegalArgumentException("Liana no existe: " + id.value()));
@@ -198,6 +282,12 @@ public final class Level {
     }
 
     // NUEVO: Validar formato de altura (solo que esté en 0-12)
+    /**
+     * Valida si la altura logica solicitada esta dentro del rango permitido.
+     *
+     * @param requestedHeight altura a validar
+     * @return {@code true} si pertenece a [0,12]
+     */
     Boolean isHeightValidFormat(Height requestedHeight) {
         Integer requested;
         try {
@@ -217,6 +307,12 @@ public final class Level {
     }
 
     // Para físicas/jugador (se sigue usando la lista "simple"):
+    /**
+     * Devuelve una lista con las lianas del nivel para consumo del motor de
+     * fisica.
+     *
+     * @return lista nueva con las lianas
+     */
     List<Liana> lianas() {
         List<Liana> list = new ArrayList<>(lianaSlots.size());
         for (var s : lianaSlots) list.add(s.liana);
@@ -226,9 +322,9 @@ public final class Level {
     // === NUEVO: getters públicos de entidades (CORREGIDO - sin recursión) ===
     List<CrocodileRed> crocodileReds() { return redCrocodiles; }      
     List<CrocodileBlue> crocodileBlues() { return blueCrocodiles; }  
-    List<Fruit> fruits() { return fruitList; }                        
+    List<Fruit> fruits() { return fruitList; }                       
     
-     // Helpers de spawn
+    // Helpers de spawn
     void addFruit(Fruit f){ fruitList.add(Objects.requireNonNull(f)); }
     void addCrocRed(CrocodileRed c){ redCrocodiles.add(Objects.requireNonNull(c)); }
     void addCrocBlue(CrocodileBlue c){ blueCrocodiles.add(Objects.requireNonNull(c)); }

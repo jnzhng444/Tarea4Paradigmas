@@ -11,7 +11,10 @@ import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-/** Una sala: (bus + game + loop) + lista de conexiones para broadcast. */
+/**
+ * Representa una sala de juego individual que mantiene un {@link Game}, su
+ * loop de simulacion y las conexiones asociadas (jugador y espectadores).
+ */
 public final class GameRoom {
 
     private static final Integer MAX_SPECTATORS = Integer.valueOf(2);
@@ -24,8 +27,14 @@ public final class GameRoom {
     private PrintWriter playerOut = null;
     private final CopyOnWriteArrayList<PrintWriter> spectatorOuts = new CopyOnWriteArrayList<>();
 
+    /**
+     * Crea una sala inicializando el juego, el loop y suscribiendo los handlers
+     * de eventos para difusion a los clientes adjuntos.
+     *
+     * @param factory fabrica utilizada para instanciar entidades dentro del juego
+     */
     public GameRoom(DefaultEntityFactory factory) {
-        // ★ el Game se construye con la fábrica explícita (Factory Method visible)
+        // el Game se construye con la fábrica explícita (Factory Method visible)
         this.game = new Game(bus, factory);
         this.loop = new GameLoop(game, "16"); 
         this.loop.start();
@@ -44,16 +53,30 @@ public final class GameRoom {
         });
     }
 
+    /**
+     * Obtiene la instancia de juego asociada a esta sala.
+     *
+     * @return instancia de {@link Game} mantenida por la sala
+     */
     public Game game() { return game; }
 
-    /** Adjunta el PrintWriter del jugador principal */
+    /**
+     * Adjunta el canal de salida del jugador principal si aun no hay uno.
+     *
+     * @param out writer conectado al cliente jugador
+     */
     public void attach(PrintWriter out){
         if (out != null && playerOut == null) {
             playerOut = out;
         }
     }
 
-    /** Adjunta un espectador. Retorna true si se pudo, false si se alcanzó el límite. */
+    /**
+     * Adjunta un espectador respetando el limite de la sala.
+     *
+     * @param out writer del cliente espectador
+     * @return {@code true} si se agrego con exito, {@code false} si la sala esta llena o el writer es null
+     */
     public Boolean attachSpectator(PrintWriter out){
         if (out == null) return Boolean.FALSE;
         if (spectatorOuts.size() >= MAX_SPECTATORS) {
@@ -63,6 +86,12 @@ public final class GameRoom {
         return Boolean.TRUE;
     }
 
+    /**
+     * Desacopla un writer, ya sea del jugador principal o de la lista de
+     * espectadores.
+     *
+     * @param out canal de salida a eliminar de la sala
+     */
     public void detach(PrintWriter out){
         if (out == null) return;
         if (out == playerOut) {
@@ -72,16 +101,26 @@ public final class GameRoom {
         }
     }
 
-    /** Retorna el número de espectadores conectados */
+    /**
+     * Indica cuántos espectadores hay actualmente conectados a la sala.
+     *
+     * @return cantidad de espectadores activos
+     */
     public Integer spectatorCount() {
         return spectatorOuts.size();
     }
 
+    /**
+     * Detiene el loop de juego asociado liberando su hilo de ejecucion.
+     */
     public void stop() {
         try { loop.stop(); } catch (Exception ignored) {}
     }
 
-    /** Notifica a los espectadores que el jugador se desconectó */
+    /**
+     * Informa a todos los espectadores que el jugador principal se ha
+     * desconectado para que los clientes actualicen la interfaz.
+     */
     public void notifyPlayerDisconnected() {
         for (var w : spectatorOuts) {
             try { 
@@ -91,6 +130,11 @@ public final class GameRoom {
         }
     }
 
+    /**
+     * Difunde una linea de texto tanto al jugador como a los espectadores.
+     *
+     * @param line mensaje a enviar
+     */
     private void broadcast(String line){
         // Enviar al jugador
         if (playerOut != null) {

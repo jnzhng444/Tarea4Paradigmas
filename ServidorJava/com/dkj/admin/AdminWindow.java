@@ -13,6 +13,10 @@ import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
+/**
+ * Ventana Swing que ofrece una consola grafica para ejecutar comandos de
+ * administracion y monitorear jugadores conectados.
+ */
 public final class AdminWindow extends JFrame {
     private final CommandDispatcherWithGame dispatcher;
     private final SessionRegistry sessions;
@@ -25,6 +29,13 @@ public final class AdminWindow extends JFrame {
     private final JButton refreshBtn = new JButton("Refrescar");
     private final JButton helpBtn = new JButton("Help");
 
+    /**
+     * Construye la ventana de administracion enlazando el dispatcher y el
+     * registro de sesiones que se utilizaran para mostrar informacion.
+     *
+     * @param dispatcher dispatcher responsable de procesar comandos
+     * @param sessions registro de sesiones desde el que se obtienen los jugadores
+     */
     public AdminWindow(CommandDispatcherWithGame dispatcher, SessionRegistry sessions) {
         super("Admin Console");
         this.dispatcher = dispatcher;
@@ -36,6 +47,9 @@ public final class AdminWindow extends JFrame {
         setLocationRelativeTo(null);
     }
 
+    /**
+     * Construye todos los componentes Swing y deja la vista lista para su uso.
+     */
     private void buildUI() {
         var content = new JPanel(new BorderLayout(Integer.valueOf(12), Integer.valueOf(12)));
         content.setBorder(new EmptyBorder(Integer.valueOf(12), Integer.valueOf(12), Integer.valueOf(12), Integer.valueOf(12)));
@@ -87,6 +101,9 @@ public final class AdminWindow extends JFrame {
         printLine("");
     }
 
+    /**
+     * Registra listeners para botones, campo de texto y lista de jugadores.
+     */
     private void wireEvents() {
         // Enter en campo de texto
         inField.addActionListener(e -> sendCurrentCommand());
@@ -116,6 +133,10 @@ public final class AdminWindow extends JFrame {
         });
     }
 
+    /**
+     * Toma el comando actual del campo de entrada, lo envia al dispatcher y
+     * muestra la respuesta en el area de salida.
+     */
     private void sendCurrentCommand() {
         var line = inField.getText();
         if (line == null) line = "";
@@ -139,6 +160,9 @@ public final class AdminWindow extends JFrame {
         }
     }
 
+    /**
+     * Muestra una ayuda rapida con los comandos mas utilizados.
+     */
     private void showHelp() {
         printLine("Comandos disponibles:");
         printLine("  PING");
@@ -152,6 +176,9 @@ public final class AdminWindow extends JFrame {
         printLine("");
     }
 
+    /**
+     * Refresca la lista de jugadores activos consultando el {@link SessionRegistry}.
+     */
     private void refreshPlayers() {
         playersModel.clear();
         List<ClientContext> list = sessions.list();
@@ -163,27 +190,57 @@ public final class AdminWindow extends JFrame {
         printLine("Players activos: " + playersModel.getSize());
     }
 
+    /**
+     * Imprime una linea en el area de salida y mantiene el caret al final.
+     *
+     * @param s texto a agregar en la consola grafica
+     */
     private void printLine(String s) {
         outArea.append(s);
         outArea.append("\n");
         outArea.setCaretPosition(outArea.getDocument().getLength());
     }
 
-    /** OutputStream que escribe en el JTextArea en EDT. */
+    /**
+     * {@link OutputStream} especializado que escribe en un {@link JTextArea}
+     * asegurando la ejecucion en el EDT.
+     */
     private static final class TextAreaOutputStream extends OutputStream {
         private final JTextArea target;
+        /**
+         * Crea el stream especificando el area de texto de destino.
+         *
+         * @param target area sobre la que se escribiran los datos
+         */
         public TextAreaOutputStream(JTextArea target) { this.target = target; }
         
-        @Override 
+        /**
+         * Escribe un byte individual en el area de texto.
+         *
+         * @param b byte a escribir
+         */
+        @Override
         public void write(int b) {
             append(new String(new byte[]{(byte)b}, StandardCharsets.UTF_8));
         }
         
-        @Override 
+        /**
+         * Escribe un bloque de bytes en el area objetivo.
+         *
+         * @param b arreglo de bytes fuente
+         * @param off desplazamiento inicial en el arreglo
+         * @param len cantidad de bytes a escribir
+         */
+        @Override
         public void write(byte[] b, int off, int len) {
             append(new String(b, off, len, StandardCharsets.UTF_8));
         }
         
+        /**
+         * Agrega el texto indicado, reencolando en el EDT si es necesario.
+         *
+         * @param s texto a anexar en el {@link JTextArea}
+         */
         private void append(String s) {
             if (SwingUtilities.isEventDispatchThread()) {
                 target.append(s);
@@ -197,6 +254,10 @@ public final class AdminWindow extends JFrame {
         }
     }
 
+    /**
+     * Muestra la ventana asegurandose de que se ejecute en el hilo de despacho
+     * de eventos de Swing.
+     */
     public void showWindow() {
         SwingUtilities.invokeLater(() -> setVisible(Boolean.TRUE));
     }

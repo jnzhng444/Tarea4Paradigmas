@@ -49,6 +49,13 @@ public final class Game {
     private final Level level;
     private final PhysicsEngine physics;
 
+    /**
+     * Crea un nuevo juego inicializando el nivel, la fisica y las entidades
+     * iniciales.
+     *
+     * @param bus bus de eventos al que se emitiran cambios de estado
+     * @param factory fabrica utilizada para instanciar entidades del juego
+     */
     public Game(final GameEventBus bus, final DefaultEntityFactory factory){
         this.bus = Objects.requireNonNull(bus);
         this.factory = Objects.requireNonNull(factory);
@@ -62,6 +69,10 @@ public final class Game {
         emitState();
     }
 
+    /**
+     * Genera las entidades iniciales (cocodrilo rojo y fruta) y registra
+     * mensajes de diagnostico.
+     */
     private void spawnInitialEntities() {
         // Spawn 1 cocodrilo rojo en liana 3, altura 6
         safeSpawnRed(new LianaId("3"), new Height("6"));
@@ -74,6 +85,13 @@ public final class Game {
     }
 
     // ===== API ADMIN =====
+    /**
+     * Intenta crear un cocodrilo rojo controlado por el administrador.
+     *
+     * @param l identificador de la liana donde aparecera
+     * @param h altura logica (0-12) solicitada
+     * @return "OK" en caso de exito o un mensaje de error descriptivo
+     */
     public String spawnCrocodileRed(final LianaId l, final Height h){
         lastError = ""; // Limpiar error anterior
         Boolean ok = safeSpawnRed(l, h);
@@ -86,7 +104,12 @@ public final class Game {
         }
     }
 
-    // Spawner automático: sigue igual (camina desde izquierda)
+    /**
+     * Spawner automatico de cocodrilos azules que entran caminando desde la
+     * plataforma superior.
+     *
+     * @param platformHeight altura inicial sobre la plataforma
+     */
     public void spawnCrocodileBlue(final Height platformHeight){
         // Crea un azul que empieza caminando en la plataforma
         var blue = factory.newBlue(platformHeight, speed);
@@ -95,7 +118,13 @@ public final class Game {
         emitState();
     }
 
-    // NUEVO: Para admin console - spawnearlo directo en liana desde el topY de esa liana
+    /**
+     * Spawnea un cocodrilo azul descendiendo directamente por la liana
+     * especificada.
+     *
+     * @param liana identificador de liana valido
+     * @return "OK" si se crea correctamente o mensaje de error si la liana no existe
+     */
     public String spawnCrocodileBlueOnLiana(final LianaId liana){
         if (!level.hasLiana(liana)) {
             System.err.println("[GAME] Cannot spawn blue: Liana " + liana.value() + " does not exist");
@@ -111,6 +140,14 @@ public final class Game {
         return "OK";
     }
 
+    /**
+     * Crea una fruta en la liana y altura indicadas.
+     *
+     * @param l liana de destino
+     * @param h altura logica (0-12)
+     * @param p puntaje asociado a la fruta
+     * @return "OK" al exito o mensaje de error informando la causa
+     */
     public String spawnFruit(final LianaId l, final Height h, final Points p){
         lastError = ""; // Limpiar error anterior
         Boolean ok = safeSpawnFruit(l, h, p);
@@ -123,6 +160,12 @@ public final class Game {
         }
     }
 
+    /**
+     * Elimina una fruta que coincida con la posicion indicada.
+     *
+     * @param l liana donde se ubica la fruta
+     * @param h altura logica en la liana
+     */
     public void deleteFruit(final LianaId l, final Height h){
         fruits.removeIf(f -> f.position().liana().equals(l) && f.position().height().equals(h));
         level.fruits().removeIf(f -> f.position().liana().equals(l) && f.position().height().equals(h));
@@ -130,22 +173,42 @@ public final class Game {
     }
 
     // ===== PLAYERS =====
+    /**
+     * Registra un nuevo jugador en el motor de fisica y en la coleccion local.
+     *
+     * @param id identificador unico del jugador
+     */
     public void addPlayer(final PlayerId id){
         physics.addPlayer(id);
         players.put(id, new Player(id, new Position(new LianaId("1"), new Height("0"))));
         emitState();
     }
 
+    /**
+     * Remueve al jugador de la partida y actualiza el estado compartido.
+     *
+     * @param id identificador del jugador a eliminar
+     */
     public void removePlayer(final PlayerId id){
         physics.removePlayer(id);
         players.remove(id);
         emitState();
     }
 
+    /**
+     * Encola un movimiento que sera procesado en el siguiente paso de la
+     * simulacion.
+     *
+     * @param id jugador que solicita el movimiento
+     * @param dir direccion solicitada
+     */
     public void enqueueMove(final PlayerId id, final Direction dir){
         physics.enqueueMove(id, dir);
     }
 
+    /**
+     * Avanza la simulacion un tick, actualizando fisica, entidades y spawners.
+     */
     public void step(){
         Float dt = Float.valueOf(0.05f);
 
@@ -192,6 +255,12 @@ public final class Game {
     }
 
     // ===== ADMIN CONSOLE =====
+    /**
+     * Interpreta comandos administrativos legacy en formato clave-valor.
+     *
+     * @param line linea original recibida desde la consola
+     * @return respuesta textual indicando exito o error
+     */
     public String runAdminCommand(String line) {
         try {
             String[] toks = line.trim().split("\\s+");
@@ -279,6 +348,12 @@ public final class Game {
     }
 
     // ===== VICTORIA =====
+    /**
+     * Gestiona la victoria de un jugador ajustando dificultad y reiniciando el
+     * estado del juego.
+     *
+     * @param pid identificador del jugador victorioso
+     */
     public void handleVictory(PlayerId pid) {
         Player p = players.get(pid);
         if (p == null) return;
@@ -311,6 +386,12 @@ public final class Game {
         resetGame(phys);
     }
     
+    /**
+     * Restablece el juego tras una victoria conservando progreso y aumentando
+     * la dificultad.
+     *
+     * @param phys estado de fisica del jugador principal
+     */
     private void resetGame(PlayerPhysics phys) {
         System.out.println("[RESET] Resetting game with increased difficulty...");
         
@@ -352,6 +433,12 @@ public final class Game {
         emitState();
     }
     
+    /**
+     * Maneja la muerte de un jugador notificando a los observadores y
+     * reiniciando entidades.
+     *
+     * @param playerId jugador que ha perdido una vida
+     */
     public void handleDeath(PlayerId playerId) {
         var phys = physics.getPhysicsFor(playerId);
         if (phys == null) return;
@@ -365,6 +452,10 @@ public final class Game {
         resetEntitiesOnly();
     }
     
+    /**
+     * Reestablece las entidades sin modificar el estado de dificultad ni las
+     * vidas de los jugadores.
+     */
     private void resetEntitiesOnly() {
         // Limpiar cocodrilos
         reds.clear();
@@ -389,10 +480,19 @@ public final class Game {
     }
     
     // ===== SERIALIZACIÓN =====
+    /**
+     * Emite el estado actual a todos los observadores suscritos.
+     */
     private void emitState(){
         bus.emit(new StateEvent(snapshot()));
     }
 
+    /**
+     * Construye una representacion textual del estado del juego usada por el
+     * protocolo de red.
+     *
+     * @return cadena que resume jugadores, cocodrilos y frutas activos
+     */
     public String snapshot(){
         var playersTxt = new StringBuilder();
         for (var entry : physics.getPlayerPhysics().entrySet()) {
@@ -448,6 +548,13 @@ public final class Game {
     }
 
     // ===== Helpers internos =====
+    /**
+     * Intenta crear un cocodrilo rojo validando previamente liana y altura.
+     *
+     * @param l liana destino del cocodrilo
+     * @param h altura logica solicitada
+     * @return {@code true} si se crea correctamente, {@code false} en caso de error
+     */
     private Boolean safeSpawnRed(LianaId l, Height h) {
         if (!level.hasLiana(l)) {
             System.err.println("[GAME] Cannot spawn red: Liana " + l.value() + " does not exist");
@@ -475,6 +582,14 @@ public final class Game {
         return Boolean.TRUE;
     }
 
+    /**
+     * Intenta crear una fruta validando liana, altura y generando logs.
+     *
+     * @param l liana donde aparecera la fruta
+     * @param h altura logica solicitada
+     * @param p puntaje asociado
+     * @return {@code true} al exito, {@code false} si alguna validacion falla
+     */
     private Boolean safeSpawnFruit(LianaId l, Height h, Points p) {
         if (!level.hasLiana(l)) {
             System.err.println("[GAME] Cannot spawn fruit: Liana " + l.value() + " does not exist");

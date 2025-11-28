@@ -1,5 +1,8 @@
 package com.dkj.game;
 
+/**
+ * Conjunto de constantes que definen las reglas y limites globales del juego.
+ */
 public final class GameRules {
     public static final Integer MAX_LIANAS = Integer.valueOf(6);
     public static final Integer HEIGHT_MAX = Integer.valueOf(12);
